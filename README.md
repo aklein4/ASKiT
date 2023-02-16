@@ -1,4 +1,5 @@
-# ASKiT
+
+![# ASKiT](./ASKiT_header.png)
 
 ## Overview
 
