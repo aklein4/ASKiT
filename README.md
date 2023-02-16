@@ -13,3 +13,7 @@ Stanford CS224N Final Project. A multi-hop reasoning text-based question-answer 
 ## Brainstorming
 
  - When collecting facts, how do we decide to just grab another sentence from the corpus vs asking a question?
+
+### Sources
+
+ - Header image: [https://www.zf.com/mobile/en/stories_6848.html](https://www.zf.com/mobile/en/stories_6848.html)
