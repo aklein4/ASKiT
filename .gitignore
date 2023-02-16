@@ -1,3 +1,7 @@
+
+# data that we don't want to push
+local_data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
