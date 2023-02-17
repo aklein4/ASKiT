@@ -10,7 +10,7 @@ Stanford CS224N Final Project. A multi-hop reasoning text-based question-answer 
  - For each feature/model, there is a seperate branch with relevant information in its README. 
  - To avoid large file hell, there is a google drive that we can use to share data. Put this data in a folder named local_data to avoid it getting pushed.
 
-## To Do
+## Roadmap
 
  1. Responder, Phraser
  2. Manager
