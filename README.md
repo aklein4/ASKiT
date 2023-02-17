@@ -7,7 +7,7 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
 
 ## Logistics
 
- - For each feature/model, there is a seperate branch with relevant information in its README. 
+ - For each feature/model, there is a seperate branch and folder with relevant information in its README. This helps keep tasks seperated.
  - To avoid large file hell, there is a google drive that we can use to share data. Put this data in a folder named local_data to avoid it getting pushed.
 
 ## Roadmap
