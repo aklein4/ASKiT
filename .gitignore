@@ -1,6 +1,5 @@
 
 # data that we don't want to push
-README.md
 local_data/
 
 # Byte-compiled / optimized / DLL files
