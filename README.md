@@ -12,10 +12,11 @@ Stanford CS224N Final Project. A multi-hop reasoning text-based question-answer 
 
 ## To Do
 
- 1. Responder, Inverter, Phraser
+ 1. Responder, Phraser
  2. Manager
- 3. Asker
- 4. Manager w/ questions as actions
+ 3. Inverter
+ 4. Asker
+ 5. Manager w/ questions as actions
 
 ## Brainstorming
 
