@@ -11,12 +11,13 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
  - To avoid large file hell, there is a google drive that we can use to share data. Put this data in a folder named local_data to avoid it getting pushed.
 
 ## Roadmap
-
- 1. [ ] Responder, Phraser
+ 
+ 1. [ ] Responder
  2. [ ] Manager
- 3. [ ] Inverter
- 4. [ ] Asker
- 5. [ ] Manager w/ questions as actions
+ 3. [ ] Phraser
+ 4. [ ] Inverter
+ 5. [ ] Asker
+ 6. [ ] Manager w/ questions as actions
 
 ## Brainstorming
 
