@@ -1,5 +1,5 @@
 
-![# ASKiT](./ASKiT_header.png)
+# ASKiT 
 
 ## Overview
 
@@ -7,16 +7,17 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
 
 ## Logistics
 
- - For each feature/model, there is a seperate branch and folder with relevant information in its README. This helps keep tasks seperated. See the respective branch for the most up-to-date version of a folder. (To move the changes from a different branch into the current one, use git merge <other branch>)
+ - For each feature/model, there is a seperate branch and folder with relevant information in its README. This helps keep tasks seperated. See the respective branch for the most up-to-date version of a folder. (To move the changes from a different branch into the current one, use git merge other-branch)
  - To avoid large file hell, there is a google drive that we can use to share data. Put this data in a folder named local_data to avoid it getting pushed.
 
 ## Roadmap
-
- 1. Responder, Phraser
- 2. Manager
- 3. Inverter
- 4. Asker
- 5. Manager w/ questions as actions
+ 
+ - [ ] 1. Responder
+ - [ ] 2. Manager
+ - [ ] 3. Phraser
+ - [ ] 4. Inverter
+ - [ ] 5. Asker
+ - [ ] 6. Manager w/ questions as actions
 
 ## Brainstorming
 
