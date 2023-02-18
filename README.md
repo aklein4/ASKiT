@@ -12,12 +12,12 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
 
 ## Roadmap
  
- 1. [ ] Responder
- 2. [ ] Manager
- 3. [ ] Phraser
- 4. [ ] Inverter
- 5. [ ] Asker
- 6. [ ] Manager w/ questions as actions
+ - [ ] 1. Responder
+ - [ ] 2. Manager
+ - [ ] 3. Phraser
+ - [ ] 4. Inverter
+ - [ ] 5. Asker
+ - [ ] 6. Manager w/ questions as actions
 
 ## Brainstorming
 
