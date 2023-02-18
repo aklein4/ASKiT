@@ -98,15 +98,15 @@ def main():
         ind += 1
         if yn:
             yn_embeddings.append(encodings[ind])
+            yeses.append(yes)
 
         yns.append(yn)
-        yeses.append(yes)
     
     types = torch.tensor(yns, dtype=torch.bool)
     torch.save(types, os.path.join(OUTPUT_DIR, "types.pt"))
 
     yn_embeddings = torch.cat(yn_embeddings)
-    torch.save(encodings, os.path.join(OUTPUT_DIR, "yn_encodings.pt"))
+    torch.save(yn_embeddings, os.path.join(OUTPUT_DIR, "yn_encodings.pt"))
 
     yn_answers = torch.tensor(yeses, dtype=torch.bool)
     torch.save(yn_answers, os.path.join(OUTPUT_DIR, "yn_answers.pt"))
