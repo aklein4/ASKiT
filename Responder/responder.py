@@ -9,7 +9,6 @@ class Responder(nn.Module):
     def __init__(self):
         super().__init__()
         
-        
         # we might not want to use the large models
         self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-large-uncased-whole-word-masking-finetuned-squad')
         qa_model = torch.hub.load('huggingface/pytorch-transformers', 'modelForQuestionAnswering', 'bert-large-uncased-whole-word-masking-finetuned-squad')
@@ -23,7 +22,12 @@ class Responder(nn.Module):
         
         # initialize the extra layers for yes/no questions
         self.W_type = nn.Linear(self.bert_output_size, 1) # 0=yn, 1=ss
-        self.W_yn = nn.Linear(self.bert_output_size, 1) # 0=no, 1=yes
+        self.W_yn = nn.Sequential(
+            nn.Linear(self.bert_output_size, 512),
+            nn.Dropout(p=0.5),
+            nn.ELU(),
+            nn.Linear(512, 1)
+        ) # 0=no, 1=yes
         
     
     def forward(self, x):
