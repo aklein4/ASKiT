@@ -2,7 +2,7 @@
 
 ## Goal
 
-Create a model that can take in a question and set of facts, and respond with an answer. The answer should be in the form of yes/no or a substring from the facts/answer.
+Create a model that can take in a question and set of facts, and respond with an answer. The answer should be in the form of yes/no or a substring from the facts/answer. (This has been depreciated, but I don't want to delete it and lose the work)
 
 ## TODO
 
