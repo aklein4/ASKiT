@@ -7,7 +7,8 @@ Create a model that can take in a question and set of facts, and respond with an
 ## TODO
 
  - [x] Create a basic class for answer prediction with yes/no capabilities.
- - [ ] Train the W_yn and W_type matrices to handle yes/no questions
+ - [x] Train W_type to determine if question is yes/no
+ - [ ] Train W_yn to determine if the answer is yes/no (appearently requires optimizing BERT parameters)
  - [ ] Fine-tune the model of HotpotQA?
 
 ## Research
