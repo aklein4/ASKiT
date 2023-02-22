@@ -8,9 +8,11 @@ from sentence_transformers import SentenceTransformer, util
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
 QA_MODEL = "deepset/bert-base-cased-squad2"
 
-class Agent:
+class Agent(nn.Module):
 
     def __init__(self):
+        super().__init__()
+        
         self.q = None
         self.F = []
         self.state = None

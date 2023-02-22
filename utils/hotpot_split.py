@@ -6,7 +6,7 @@ import os
 from tqdm import tqdm
 
 # input json
-INPUT = "../local_data/hotpot_train_v1.1.json"
+INPUT = "../local_data/hotpot/hotpot_train_v1.1.json"
 
 # output dir to put stuff in
 OUTPUT_DIR = "../local_data/hotpot/data/"
@@ -41,6 +41,7 @@ def main():
             continue
 
         fixed["evidence_titles"] = [s[0] for s in p["supporting_facts"]]
+        fixed["evidence_ids"] = [s[1] for s in p["supporting_facts"]]
 
         fixed["corpus"] = [c[1] for c in p['context']]
         fixed["corpus_titles"] = [c[0] for c in p['context']]
