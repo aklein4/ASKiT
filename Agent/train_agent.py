@@ -244,6 +244,7 @@ class AgentDataset:
             for k in range(len(old_x)):
                 old_x[k].detach_()
                 old_y[k].detach_()
+        torch.cuda.empty_cache()        
         self.prev_x_1 = (x_1, y)
 
         return (x_0, x_1), y
