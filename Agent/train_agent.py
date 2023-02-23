@@ -7,15 +7,17 @@ from agent import Agent
 import json
 import random
 import csv
+import os
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 import sys
 sys.path.append("../utils")
 from train_utils import Logger, train
 
 
-TRAIN_FILE = "../local_data/hotpot_data/val.json"
-TRAIN_ENCODINGS = "../local_data/corpus_encodings/val.pt"
+TRAIN_FILE = "../local_data/hotpot_data/train.json"
+TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
@@ -30,6 +32,8 @@ BATCH_SIZE = 32
 N_FRENS = 1
 NOISE_DECAY = 2
 TOP_K = 5
+
+SKIP = 1
 
 
 class AgentDataset:
@@ -49,7 +53,7 @@ class AgentDataset:
         # load all of the embeddings
         self.corpus = torch.load(corpus_encodings)
         for i in range(len(self.corpus)):
-            self.corpus[i] = self.corpus[i].to(torch.float32).to(self.device)
+            self.corpus[i] = self.corpus[i].to(self.device)
             self.corpus[i].requires_grad = False
 
         # check that things match up
@@ -195,7 +199,7 @@ class AgentDataset:
         self.x = []
         self.y = []
 
-        for i in range(len(self)):
+        for i in tqdm(range(len(self)), desc="Loading", leave=False):
 
             target = self.targets[i].clone()
             target[self.temp_evidence[i]] = 0
@@ -209,9 +213,7 @@ class AgentDataset:
                 x_corpus.append(fren)
                 target.append(torch.zeros([fren.shape[0]], dtype=torch.float32, device=self.device))
 
-            x_corpus = torch.cat(x_corpus)
-            target = torch.cat(target)
-            assert x_corpus.shape[0] == target.shape[0]
+            assert len(x_corpus) == len(target)
 
             self.x.append((self.states[i], x_corpus))
             self.y.append(target)
@@ -234,13 +236,15 @@ class AgentDataset:
         for ind in indices:
             state, enc = self.x[ind]
             x_0.append(state)
-            x_1.append(enc)
-            y.append(self.y[ind])
+            x_1.append(torch.cat(enc).to(torch.float32))
+            y.append(torch.cat(self.y[ind]))
 
         if self.prev_x_1 is not None:
-            for k in range(len(self.prev_x_1)):
-                self.prev_x_1[k].detach_()
-        self.prev_x_1 = x_1
+            old_x, old_y = self.prev_x_1
+            for k in range(len(old_x)):
+                old_x[k].detach_()
+                old_y[k].detach_()
+        self.prev_x_1 = (x_1, y)
 
         return (x_0, x_1), y
 
@@ -277,7 +281,7 @@ class AgentLogger(Logger):
         self.train_percs = []
         self.val_percs = []
 
-        self.best_val_perc = 0
+        self.best_val_acc = 0
 
         with open(LOG, 'w') as csvfile:
             spamwriter = csv.writer(csvfile, dialect='excel')
@@ -285,7 +289,8 @@ class AgentLogger(Logger):
 
 
     def initialize(self, model):
-        self.model = model
+        self.tokenizer = model.L_qF_tokenizer
+        self.model = model.L_qF
     
 
     def log(self, train_log, val_log):
@@ -311,13 +316,13 @@ class AgentLogger(Logger):
                 continue
             train_seen += 1
 
-            highest_ev = torch.max(train_pred[t][train_y[t] == 1]).item()
+            highest_ev = torch.max(train_pred[t][train_y[t] == 1])
             if highest_ev == torch.max(train_pred[t]).item():
                 this_train_acc += 1
                 this_train_perc += 1
             else:
                 beat_by = torch.sum(torch.where(train_pred[t] > highest_ev, 1, 0)).item()
-                this_train_perc += 1 - (beat_by / train_pred[t].shape[0]-1)
+                this_train_perc += 1 - (beat_by / (train_pred[t].numel()-1))
 
         val_pred_batched, val_y_batched = val_log
         val_pred = []
@@ -332,13 +337,13 @@ class AgentLogger(Logger):
                 continue
             val_seen += 1
 
-            highest_ev = torch.max(val_pred[t][val_y[t] == 1]).item()
+            highest_ev = torch.max(val_pred[t][val_y[t] == 1])
             if highest_ev == torch.max(val_pred[t]).item():
                 this_val_acc += 1
                 this_val_perc += 1
             else:
                 beat_by = torch.sum(torch.where(val_pred[t] > highest_ev, 1, 0)).item()
-                this_val_perc += 1 - (beat_by / val_pred[t].shape[0]-1)
+                this_val_perc += 1 - (beat_by / (val_pred[t].numel()-1))
 
         this_train_acc /= max(1, train_seen)
         this_train_perc /= max(1, train_seen)
@@ -371,9 +376,10 @@ class AgentLogger(Logger):
         plt.savefig(GRAFF)
         plt.clf()
 
-        if this_val_perc > self.best_val_acc:
-            self.best_val_acc = this_val_perc
-            torch.save(self.model.state_dict(), CHECKPOINT+"-{}.pt".format(len(self.val_percs)-1))
+        if this_val_acc > self.best_val_acc:
+            self.best_val_acc = this_val_acc
+            self.tokenizer.save_pretrained(CHECKPOINT+"_tokenizer-{}".format(len(self.val_percs)-1))
+            self.model.save_pretrained(CHECKPOINT+"-{}".format(len(self.val_percs)-1))
 
 
 def main():
@@ -395,7 +401,7 @@ def main():
         num_training_steps=50000,
     )
 
-    train(model, optimizer, train_data, k_loss, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler)
+    train(model, optimizer, train_data, k_loss, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
 
 
 if __name__== '__main__':

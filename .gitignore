@@ -2,7 +2,7 @@
 # data that we don't want to push
 local_data/
 
-**.pt
+**checkpoints/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

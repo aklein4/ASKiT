@@ -68,7 +68,7 @@ class Logger:
         return
 
 
-def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None):
+def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None, skip=1):
     
     if logger is not None:
         logger.initialize(model)
@@ -90,7 +90,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
 
         model.train()
 
-        with tqdm(range(0, len(train_data), batch_size), leave=False, desc="Training") as pbar:
+        with tqdm(range(0, len(train_data), batch_size*skip), leave=False, desc="Training") as pbar:
             pbar.set_postfix({'epoch': epoch, 'step': step})
             for b in pbar:
                 step += 1
@@ -138,7 +138,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
             model.eval()
 
             with torch.no_grad():
-                with tqdm(range(0, len(val_data), batch_size), leave=False, desc="Validating") as pbar:
+                with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
                     pbar.set_postfix({'epoch': epoch})
                     for b in pbar:
                         x, y = val_data[b, batch_size]
