@@ -111,7 +111,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
 
                 train_preds.append(pred)
                 train_y.append(y)
-                
+
+                mem_use = "N/A"
+                try:
+                    mem_use = torch.cuda.memory_allocated(0) * 1e-9
+                except:
+                    pass
+
                 if isinstance(train_preds[-1], list):
                     for k in range(len(train_preds[-1])):
                         train_preds[-1][k] = train_preds[-1][k].detach()
@@ -124,7 +130,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 else:
                     train_y[-1] = train_y[-1].detach()
 
-                pbar.set_postfix({'epoch': epoch, 'step': step, 'loss': loss.item()})
+                pbar.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': loss.item()})
         
         train_log = (train_preds, train_y)
         
@@ -149,6 +155,12 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                         
                         val_preds.append(pred)
                         val_y.append(y)
+ 
+                        mem_use = "N/A"
+                        try:
+                            mem_use = torch.cuda.memory_allocated(0) * 1e-9
+                        except:
+                            pass
 
                         if isinstance(val_preds[-1], list):
                             for k in range(len(val_preds[-1])):
@@ -162,7 +174,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                         else:
                             val_y[-1] = val_y[-1].detach()
                         
-                        pbar.set_postfix({'epoch': epoch, 'loss': loss.item()})
+                        pbar.set_postfix({'epoch': epoch, 'loss': loss.item(), 'mem_use': mem_use})
             
             val_log = (val_preds, val_y)
         

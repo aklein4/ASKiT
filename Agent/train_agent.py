@@ -27,7 +27,7 @@ LOG = "./logs/Agent.log"
 GRAFF = "./logs/Agent.png"
 
 LR = 1e-6
-BATCH_SIZE = 32
+BATCH_SIZE = 24
 
 N_FRENS = 1
 NOISE_DECAY = 2
@@ -398,7 +398,7 @@ def main():
     optimizer = torch.optim.AdamW(params=model.L_qF.parameters(), lr=LR)
     lr_scheduler = get_linear_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=500,
+        num_warmup_steps=10000,
         num_training_steps=50000,
     )
 
