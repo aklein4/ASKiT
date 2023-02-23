@@ -14,8 +14,8 @@ sys.path.append("../utils")
 from train_utils import Logger, train
 
 
-TRAIN_FILE = "../local_data/hotpot_data/train.json"
-TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
+TRAIN_FILE = "../local_data/hotpot_data/val.json"
+TRAIN_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
@@ -24,8 +24,8 @@ CHECKPOINT = "./checkpoints/Agent"
 LOG = "./logs/Agent.log"
 GRAFF = "./logs/Agent.png"
 
-LR = 2e-5
-BATCH_SIZE = 64
+LR = 1e-6
+BATCH_SIZE = 32
 
 N_FRENS = 1
 NOISE_DECAY = 2
@@ -50,15 +50,16 @@ class AgentDataset:
         self.corpus = torch.load(corpus_encodings)
         for i in range(len(self.corpus)):
             self.corpus[i] = self.corpus[i].to(torch.float32).to(self.device)
-        
+            self.corpus[i].requires_grad = False
+
         # check that things match up
-        assert self.corpus.shape[0] == self.size
+        assert len(self.corpus) == self.size
 
         # get targets with 1 as evidence, zero else (corresponding to emeddings)
         self.targets = []
         for i in range(len(self.data)):
             targ = torch.zeros((self.corpus[i].shape[0],), dtype=torch.float32, device=self.device)
-            targ[self.data[i]["sentence_raw_ids"]] = 1
+            targ[self.data[i]["evidence_raw_ids"]] = 1
             self.targets.append(targ)
         
         # number of extra corpuses per question
@@ -130,7 +131,7 @@ class AgentDataset:
         random.seed(0)
         self._generateEvidence()
         self._generateStates()
-        random.seed(torch.randint(0, 0xfffe).item())
+        random.seed(torch.randint(0xfffe, size=(1,)).item())
 
         self._updateData()
 
@@ -156,13 +157,13 @@ class AgentDataset:
             self.noise = None
 
         else:
-            self.noise_amounts = self.noise_generator.sample_n(self.size).to_list()
+            self.noise_amounts = torch.round(self.noise_generator.sample((self.size,))).tolist()
             self.noise = []
             for i in range(self.size):
                 noise_i = []
-                for n in range(self.noise_amounts[i]):
-                    article = torch.randint(0, len(self.data[i]["corpus_titles"]), size=(1,)).item()
-                    sentence = torch.randint(0, len(self.data[i]["corpus"][article]), size=(1,)).item()
+                for n in range(int(self.noise_amounts[i])):
+                    article = torch.randint(len(self.data[i]["corpus_titles"]), size=(1,)).item()
+                    sentence = torch.randint(len(self.data[i]["corpus"][article]), size=(1,)).item()
                     noise_i.append((article, sentence))
                 self.noise.append(noise_i)
 
@@ -189,6 +190,8 @@ class AgentDataset:
 
 
     def _updateData(self):
+        self.prev_x_1 = None
+
         self.x = []
         self.y = []
 
@@ -225,12 +228,21 @@ class AgentDataset:
 
         indices = self.shuffler[index:index+batchsize]
 
-        x = []
+        x_0 = []
+        x_1 = []
         y = []
         for ind in indices:
-            x.append(self.x[ind])
+            state, enc = self.x[ind]
+            x_0.append(state)
+            x_1.append(enc)
             y.append(self.y[ind])
-        return x, y
+
+        if self.prev_x_1 is not None:
+            for k in range(len(self.prev_x_1)):
+                self.prev_x_1[k].detach_()
+        self.prev_x_1 = x_1
+
+        return (x_0, x_1), y
 
 
 class TopKCrossEntropy(torch.nn.Module):
@@ -241,11 +253,20 @@ class TopKCrossEntropy(torch.nn.Module):
         self.k = k
 
     def forward(self, pred, target):
+        assert len(pred) == len(target)
 
-        pred_combined = torch.nn.utils.rnn.pad_sequence(pred, padding_value=0, batch_first=True)
-        target_combined = torch.nn.utils.rnn.pad_sequence(target, padding_value=0, batch_first=True)
+        pred_stack = []
+        target_stack = []
 
-        return torch.nn.functional.cross_entropy(pred_combined, target_combined)
+        for i in range(len(pred)):
+            vals, inds = torch.topk(pred[i], self.k)
+            pred_stack.append(pred[i][inds])
+            target_stack.append(target[i][inds])
+
+        pred_batch = torch.stack(pred_stack)
+        target_batch = torch.stack(target_stack)
+
+        return torch.nn.functional.cross_entropy(pred_batch, target_batch)
 
 
 class AgentLogger(Logger):
@@ -260,7 +281,7 @@ class AgentLogger(Logger):
 
         with open(LOG, 'w') as csvfile:
             spamwriter = csv.writer(csvfile, dialect='excel')
-            spamwriter.writerow(["train_perc", "val_perc", "train_acc", "val_acc"])
+            spamwriter.writerow(["epoch", "train_perc", "val_perc", "train_acc", "val_acc"])
 
 
     def initialize(self, model):
@@ -277,7 +298,14 @@ class AgentLogger(Logger):
         this_val_perc = 0
         val_seen = 0
 
-        train_pred, train_y = train_log
+        train_pred_batched, train_y_batched = train_log
+        train_pred = []
+        train_y = []
+        for i in range(len(train_pred_batched)):
+            train_pred += train_pred_batched[i]
+            train_y += train_y_batched[i]
+        assert len(train_pred) == len(train_y)
+        
         for t in range(len(train_pred)):
             if torch.all(torch.sum(train_y[t]) == 0):
                 continue
@@ -291,7 +319,14 @@ class AgentLogger(Logger):
                 beat_by = torch.sum(torch.where(train_pred[t] > highest_ev, 1, 0)).item()
                 this_train_perc += 1 - (beat_by / train_pred[t].shape[0]-1)
 
-        val_pred, val_y = val_log
+        val_pred_batched, val_y_batched = val_log
+        val_pred = []
+        val_y = []
+        for i in range(len(val_pred_batched)):
+            val_pred += val_pred_batched[i]
+            val_y += val_y_batched[i]
+        assert len(val_pred) == len(val_y)
+        
         for t in range(len(val_pred)):
             if torch.all(torch.sum(val_y[t]) == 0):
                 continue
@@ -312,16 +347,16 @@ class AgentLogger(Logger):
         this_val_perc /= max(1, val_seen)
 
         self.train_accs.append(this_train_acc)
-        self.train_percs.appedn(this_train_perc)
+        self.train_percs.append(this_train_perc)
 
-        self.val_accs.append(this_train_acc)
+        self.val_accs.append(this_val_acc)
         self.val_percs.append(this_val_perc)
 
         with open(LOG, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
-            spamwriter.writerow([this_train_perc, this_val_perc, this_train_acc, this_val_acc])
+            spamwriter.writerow([len(self.train_accs)-1, this_train_perc, this_val_perc, this_train_acc, this_val_acc])
 
-        ax, fig = plt.subplots(2)
+        fig, ax = plt.subplots(2)
 
         ax[0].plot(self.val_percs)
         ax[0].plot(self.train_percs)
@@ -343,22 +378,22 @@ class AgentLogger(Logger):
 
 def main():
 
-    model = Agent()
-    model = model.cuda()
-
-    optimizer = AdamW(params=model.L_qF.parameters(), lr=2e-5, correct_bias=True)
-    lr_scheduler = get_linear_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=500,
-        num_training_steps=10000,
-    )
-
-    train_data = AgentDataset(TRAIN_FILE, TRAIN_ENCODINGS, N_FRENS, NOISE_DECAY)
-    val_data = AgentDataset(VAL_FILE, VAL_ENCODINGS, N_FRENS, NOISE_DECAY)
+    train_data = AgentDataset(TRAIN_FILE, TRAIN_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
+    val_data = AgentDataset(VAL_FILE, VAL_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
 
     k_loss = TopKCrossEntropy(TOP_K)
 
     logger = AgentLogger()
+    model = Agent()
+    model.L_qF.requires_grad = True
+    model = model.cuda()
+
+    optimizer = torch.optim.AdamW(params=model.L_qF.parameters(), lr=LR)
+    lr_scheduler = get_linear_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=500,
+        num_training_steps=50000,
+    )
 
     train(model, optimizer, train_data, k_loss, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler)
 

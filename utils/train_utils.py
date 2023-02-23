@@ -78,6 +78,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
     print("Validation Set Size:", ("None" if val_data is None else len(val_data)), '\n')
     
     epoch = -1
+    step = -1
     while num_epochs is None or epoch+1 < num_epochs:
         epoch += 1
 
@@ -90,8 +91,10 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
         model.train()
 
         with tqdm(range(0, len(train_data), batch_size), leave=False, desc="Training") as pbar:
-            pbar.set_postfix({'epoch': epoch})
+            pbar.set_postfix({'epoch': epoch, 'step': step})
             for b in pbar:
+                step += 1
+
                 x, y = train_data[b, batch_size]
 
                 pred = model.forward(x)
@@ -121,7 +124,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 else:
                     train_y[-1] = train_y[-1].detach()
 
-                pbar.set_postfix({'epoch': epoch, 'loss': loss.item()})
+                pbar.set_postfix({'epoch': epoch, 'step': step, 'loss': loss.item()})
         
         train_log = (train_preds, train_y)
         
