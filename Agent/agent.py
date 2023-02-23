@@ -50,6 +50,19 @@ class Agent(nn.Module):
         self._updateEncoding()
 
 
+    def forward(self, x):
+        sentences, corpuses = x
+        assert len(sentences) == len(corpuses)
+
+        h_qF = self.L_qF.encode(sentences, convert_to_tensor=True)
+
+        preds = []
+        for i in range(len(sentences)):
+            preds.append(corpuses[i] @ h_qF[i])
+
+        return preds
+
+
     def _Q_b(self, b):
         return self.b_activation(b @ self.h_qF)
 

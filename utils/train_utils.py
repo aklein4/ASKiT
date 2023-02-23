@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 import os
 
-class Dataset:
+class TensorDataset:
 
     def __init__(self, x_file, y_file, target_type=torch.float32):
         self.x = torch.load(x_file)
@@ -25,7 +25,7 @@ class Dataset:
         self.shuffler = torch.randperm(self.size, device=self.device)
 
     def reset(self):
-        self.shuffler = torch.range(0, self.size, device=self.device)
+        self.shuffler = torch.arange(0, self.size, device=self.device)
 
 
     def cpu(self):
@@ -68,7 +68,7 @@ class Logger:
         return
 
 
-def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None):
+def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None):
     
     if logger is not None:
         logger.initialize(model)
@@ -103,12 +103,27 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 loss.backward()
                 optimizer.step()
                 
-                train_preds.append(pred.detach())
-                train_y.append(y.detach())
+                if lr_scheduler is not None:
+                    lr_scheduler.step()
+
+                train_preds.append(pred)
+                train_y.append(y)
                 
+                if isinstance(train_preds[-1], list):
+                    for k in range(len(train_preds[-1])):
+                        train_preds[-1][k] = train_preds[-1][k].detach()
+                else:
+                    train_preds[-1] = train_preds[-1].detach()
+
+                if isinstance(train_y[-1], list):
+                    for k in range(len(train_y[-1])):
+                        train_y[-1][k] = train_y[-1][k].detach()
+                else:
+                    train_y[-1] = train_y[-1].detach()
+
                 pbar.set_postfix({'epoch': epoch, 'loss': loss.item()})
         
-        train_log = (torch.cat(train_preds), torch.cat(train_y))
+        train_log = (train_preds, train_y)
         
         val_log = None
         
@@ -129,12 +144,24 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                         
                         loss = loss_fn(pred, y)
                         
-                        val_preds.append(pred.detach())
-                        val_y.append(y.detach())
+                        val_preds.append(pred)
+                        val_y.append(y)
+
+                        if isinstance(val_preds[-1], list):
+                            for k in range(len(val_preds[-1])):
+                                val_preds[-1][k] = val_preds[-1][k].detach()
+                        else:
+                            val_preds[-1] = val_preds[-1].detach()
+
+                        if isinstance(val_y[-1], list):
+                            for k in range(len(val_y[-1])):
+                                val_y[-1][k] = val_y[-1][k].detach()
+                        else:
+                            val_y[-1] = val_y[-1].detach()
                         
                         pbar.set_postfix({'epoch': epoch, 'loss': loss.item()})
             
-            val_log = (torch.cat(val_preds), torch.cat(val_y))
+            val_log = (val_preds, val_y)
         
         if logger is not None:
             logger.log(train_log, val_log)
