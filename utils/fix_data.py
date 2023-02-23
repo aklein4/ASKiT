@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 # input json
-FILE = "../local_data/hotpot_data/train.json"
+FILE = "../local_data/hotpot_data/val.json"
 
 
 def main():
