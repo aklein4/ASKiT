@@ -23,7 +23,7 @@ VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 CHECKPOINT = "./checkpoints/Agent"
-LOG = "./logs/Agent.log"
+LOG = "./logs/Agent.csv"
 GRAFF = "./logs/Agent.png"
 
 LR = 1e-6
