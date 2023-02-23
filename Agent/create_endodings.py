@@ -6,8 +6,8 @@ from agent import Agent
 import json
 from tqdm import tqdm
 
-IN_FILE = "../local_data/hotpot_data/val.json"
-OUT_FILE = "../local_data/corpus_encodings/val.pt"
+IN_FILE = "../local_data/hotpot_data/train.json"
+OUT_FILE = "../local_data/corpus_encodings/train.pt"
 
 BATCH_SIZE = 128
 
