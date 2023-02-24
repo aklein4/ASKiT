@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer, util
 
 
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
-SEARCH_MODEL = "./Agent-unnorm-77_6"
+SEARCH_MODEL = "checkpoints/Agent-unnorm-77_6"
 QA_MODEL = "deepset/bert-base-cased-squad2"
 
 
