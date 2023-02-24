@@ -4,11 +4,12 @@ from agent import Agent
 import torch
 import json
 from tqdm import tqdm
-import statistics
+import random
 
 TEST_FILE = "../local_data/hotpot_data/val.json"
+ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-USE_TITLE = False
+K_TOP = 16
 
 def main():
     
@@ -19,54 +20,41 @@ def main():
     model = Agent()
     # model = model.cuda()
     
+    encodings = torch.load(ENCODINGS, map_location=torch.device("cpu"))
+
     tot_misses = 0
     tot_bests = 0
     tot_correct = 0
     tot_perc = 0
     num_seen = 0
+    tot_size = 0
+    tot_top_5 = 0
+
+    ind = -1
     for p in (pbar := tqdm(data)):
-
-        text_corpus = []
-        for i in range(len(p["corpus"])):
-            sub = p["corpus"][i]
-            if USE_TITLE:
-                name = p["corpus_titles"][i]
-                for s in sub:
-                    text_corpus.append(name + ". " + s)
-            else:
-                text_corpus += sub
-            
-        evidence = []
-        if USE_TITLE:
-            for i in range(len(p["evidence_sentences"])):
-                s = p["evidence_sentences"][i]
-                name = p["evidence_titles"][i]
-                evidence.append(name + ": " + s)
-        else:
-            evidence = p["evidence_sentences"]
+        ind += 1
         
-        corpus_encoding = model.encode(text_corpus)
-        corpus_scores = model.forward(([p["question"]], [corpus_encoding]))[0]
-        
-        #print("\ncorpus_scores:", [round(corpus_scores[i].item(), 3) for i in range(corpus_scores.shape[0])])
-        
-        evidence_encoding = model.encode(evidence)
-        evidence_scores = model.forward(([p["question"]], [evidence_encoding]))[0]
+        corpse = [encodings[ind].to(torch.float32)]
+        for i in range(0):
+            corpse.append(random.choice(encodings).to(torch.float32))
+        corpse = torch.cat(corpse)
 
-        #print("\nevidence_scores:", [round(evidence_scores[i].item(), 3) for i in range(evidence_scores.shape[0])])
+        corpus_scores = model.forward(([p["question"]], [corpse]))[0]
+        tot_size += corpse.shape[0]
 
-        ranks = []
-        for i in range(evidence_scores.shape[0]):
-            ranks.append(torch.sum(torch.where(corpus_scores >= evidence_scores[i], 1, 0)).item())
+        # ranks = []
+        # for s in p["evidence_raw_ids"]:
+        #     ranks.append(torch.sum(torch.where(corpus_scores > corpus_scores[s], 1, 0)).item() + 1)
         
-        misses = (sum(ranks) - sum(range(1, len(ranks)+1))) / len(ranks)
+        # misses = (sum(ranks) - sum(range(1, len(ranks)+1))) / len(ranks)
+        # tot_misses += misses
 
-        tot_misses += misses
-        tot_perc += 1 - (misses / len(text_corpus))
-        tot_bests += min(ranks)
-        tot_correct += 1 if min(ranks) == 1 else 0
+        tot_perc += 1 - (torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)) / (corpus_scores.shape[0] - 1)).item()
+        tot_bests += torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)).item() + 1
+        tot_correct += 1 if torch.max(corpus_scores) == torch.max(corpus_scores[p["evidence_raw_ids"]]).item() else 0
+        tot_top_5 += 1 if torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)).item() < K_TOP else 0
         num_seen += 1
-        pbar.set_postfix({"avg_misses": tot_misses/num_seen, "avg_perc": tot_perc/num_seen, "avg_best": tot_bests/num_seen, "acc:": tot_correct/num_seen})
+        pbar.set_postfix({"avg_size": tot_size/num_seen, "avg_perc": tot_perc/num_seen, "avg_best": tot_bests/num_seen, "acc": tot_correct/num_seen, "top_{}".format(K_TOP): tot_top_5/num_seen})
 
         # if min(ranks) == 1:
         #     print('\n', model.q)
