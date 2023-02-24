@@ -68,7 +68,7 @@ class Logger:
         return
 
 
-def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None, skip=1):
+def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None, skip=1, rolling_avg=0.95):
     
     if logger is not None:
         logger.initialize(model)
@@ -89,6 +89,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
         train_y = []
 
         model.train()
+
+        rolling_tot_loss = 0
+        rollong_loss_num = 0
 
         with tqdm(range(0, len(train_data), batch_size*skip), leave=False, desc="Training") as pbar:
             pbar.set_postfix({'epoch': epoch, 'step': step})
@@ -130,7 +133,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 else:
                     train_y[-1] = train_y[-1].detach()
 
-                pbar.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': loss.item()})
+                rolling_tot_loss *= rolling_avg
+                rollong_loss_num *= rolling_avg
+
+                rolling_tot_loss += loss.item()
+                rollong_loss_num += 1
+
+                pbar.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num})
         
         train_log = (train_preds, train_y)
         
@@ -142,6 +151,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
             val_y = []
             
             model.eval()
+
+            rolling_tot_loss = 0
+            rollong_loss_num = 0
 
             with torch.no_grad():
                 with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
@@ -174,7 +186,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                         else:
                             val_y[-1] = val_y[-1].detach()
                         
-                        pbar.set_postfix({'epoch': epoch, 'loss': loss.item(), 'mem_use': mem_use})
+                        rolling_tot_loss *= rolling_avg
+                        rollong_loss_num *= rolling_avg
+
+                        rolling_tot_loss += loss.item()
+                        rollong_loss_num += 1
+
+                        pbar.set_postfix({'epoch': epoch, 'loss': rolling_tot_loss / rollong_loss_num, 'mem_use': mem_use})
             
             val_log = (val_preds, val_y)
         

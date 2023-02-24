@@ -17,7 +17,7 @@ def main():
         data = json.load(f)
 
     model = Agent()
-    model = model.cuda()
+    # model = model.cuda()
     
     tot_misses = 0
     tot_bests = 0
@@ -25,8 +25,6 @@ def main():
     tot_perc = 0
     num_seen = 0
     for p in (pbar := tqdm(data)):
-        
-        model.setQuestion(p["question"])
 
         text_corpus = []
         for i in range(len(p["corpus"])):
@@ -48,18 +46,18 @@ def main():
             evidence = p["evidence_sentences"]
         
         corpus_encoding = model.encode(text_corpus)
-        corpus_scores = model._Q_b(corpus_encoding)
+        corpus_scores = model.forward(([p["question"]], [corpus_encoding]))[0]
         
         #print("\ncorpus_scores:", [round(corpus_scores[i].item(), 3) for i in range(corpus_scores.shape[0])])
         
         evidence_encoding = model.encode(evidence)
-        evidence_scores = model._Q_b(evidence_encoding)
+        evidence_scores = model.forward(([p["question"]], [evidence_encoding]))[0]
 
         #print("\nevidence_scores:", [round(evidence_scores[i].item(), 3) for i in range(evidence_scores.shape[0])])
 
         ranks = []
         for i in range(evidence_scores.shape[0]):
-            ranks.append(torch.sum(torch.where(corpus_scores > evidence_scores[i], 1, 0)).item() + 1)
+            ranks.append(torch.sum(torch.where(corpus_scores >= evidence_scores[i], 1, 0)).item())
         
         misses = (sum(ranks) - sum(range(1, len(ranks)+1))) / len(ranks)
 
@@ -70,10 +68,10 @@ def main():
         num_seen += 1
         pbar.set_postfix({"avg_misses": tot_misses/num_seen, "avg_perc": tot_perc/num_seen, "avg_best": tot_bests/num_seen, "acc:": tot_correct/num_seen})
 
-        if min(ranks) == 1:
-            print('\n', model.q)
-            print(evidence[ranks.index(min(ranks))])
-            input(">>>")
+        # if min(ranks) == 1:
+        #     print('\n', model.q)
+        #     print(evidence[ranks.index(min(ranks))])
+        #     input(">>>")
             
 
 if __name__ == '__main__':
