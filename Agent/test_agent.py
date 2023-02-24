@@ -6,7 +6,7 @@ import json
 from tqdm import tqdm
 import statistics
 
-TEST_FILE = "../local_data/hotpot/data/val.json"
+TEST_FILE = "../local_data/hotpot_data/val.json"
 
 USE_TITLE = False
 
@@ -43,7 +43,7 @@ def main():
             for i in range(len(p["evidence_sentences"])):
                 s = p["evidence_sentences"][i]
                 name = p["evidence_titles"][i]
-                evidence.append(name + ". " + s)
+                evidence.append(name + ": " + s)
         else:
             evidence = p["evidence_sentences"]
         
