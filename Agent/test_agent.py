@@ -9,7 +9,7 @@ import random
 TEST_FILE = "../local_data/hotpot_data/val.json"
 ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-K_TOP = 16
+K_TOP = 45
 
 def main():
     
@@ -52,7 +52,8 @@ def main():
         tot_perc += 1 - (torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)) / (corpus_scores.shape[0] - 1)).item()
         tot_bests += torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)).item() + 1
         tot_correct += 1 if torch.max(corpus_scores) == torch.max(corpus_scores[p["evidence_raw_ids"]]).item() else 0
-        tot_top_5 += 1 if torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)).item() < K_TOP else 0
+        for e in p["evidence_raw_ids"]:
+            tot_top_5 += 1 if torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[e]), 1, 0)).item() < K_TOP else 0
         num_seen += 1
         pbar.set_postfix({"avg_size": tot_size/num_seen, "avg_perc": tot_perc/num_seen, "avg_best": tot_bests/num_seen, "acc": tot_correct/num_seen, "top_{}".format(K_TOP): tot_top_5/num_seen})
 
