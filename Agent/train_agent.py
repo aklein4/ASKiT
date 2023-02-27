@@ -296,10 +296,8 @@ def MaxPLoss(pred, target):
 
     log_p = torch.nn.functional.log_softmax(pred_batch, dim=-1)
 
-    loss = 0
-    for t in range(len(pred)):
-        loss += log_p[t][target_batch[t] == 1]
-    return - loss / len(pred)
+    loss = torch.sum(torch.where(target_batch == 1, log_p, torch.zeros_like(log_p)))
+    return -loss / len(pred)
 
 
 class AgentLogger(Logger):
