@@ -284,7 +284,7 @@ def MaxPLoss(pred, target):
     pred_stack = []
     target_stack = []
 
-    b_size = max([p.numel() for p in pred])
+    b_size = min([p.numel() for p in pred])
 
     for i in range(len(pred)):
         vals, inds = torch.topk(pred[i], b_size)
@@ -295,8 +295,11 @@ def MaxPLoss(pred, target):
     target_batch = torch.stack(target_stack)
 
     log_p = torch.nn.functional.log_softmax(pred_batch, dim=-1)
-    select_p = log_p[target_batch == 1]
-    return -select_p
+
+    loss = 0
+    for t in range(len(pred)):
+        loss += log_p[t][target_batch[t] == 1]
+    return - loss / len(pred)
 
 
 class AgentLogger(Logger):
