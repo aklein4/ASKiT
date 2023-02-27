@@ -83,6 +83,34 @@ class Agent(nn.Module):
         return preds
 
 
+    # TODO: implement these 2 functions
+    def Qstate(self, state):
+        pass
+    def Qsubmit(self, state):
+        pass
+
+
+    def getAction(self, state, text_corpus, encodings, top_k):
+
+        encoding_evals = self.forward(([state], [encodings]))[0]
+        search_probs = torch.nn.functional.softmax(encoding_evals, dim=-1)
+
+        top_vals, top_inds = torch.topk(encoding_evals, top_k)
+        
+        new_states = []
+        for i in range(top_inds.shape[0]):
+            new_states.append(state + text_corpus[top_inds[i]])
+
+        Q_vals = self.Qstate(new_states)
+
+        Q_sub_val = self.Qsubmit(state)
+
+        if Q_sub_val.item() > torch.max(Q_vals).item():
+            return -1, search_probs
+
+        return torch.argmax(Q_vals), search_probs
+    
+
     def _Q_b(self, b):
         return self.b_activation(b @ self.h_qF)
 
