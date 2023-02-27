@@ -22,9 +22,9 @@ TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-CHECKPOINT = "./checkpoints/Agent_2"
-LOG = "./logs/Agent_2.csv"
-GRAFF = "./logs/Agent_2.png"
+CHECKPOINT = "./checkpoints/Agent_p"
+LOG = "./logs/Agent_p.csv"
+GRAFF = "./logs/Agent_p.png"
 
 LR = 1e-6
 BATCH_SIZE = 24
@@ -34,7 +34,7 @@ NOISE_DECAY = 2
 TOP_K = 5
 
 SKIP = 1
-
+TRUNC = 20000
 
 class AgentDataset:
 
@@ -47,6 +47,8 @@ class AgentDataset:
         with open(file, 'r') as f:
             self.data = json.load(f)
 
+        self.data = self.data[:TRUNC]
+
         # how big is it?
         self.size = len(self.data)
 
@@ -55,6 +57,8 @@ class AgentDataset:
         for i in range(len(self.corpus)):
             self.corpus[i] = self.corpus[i].to(self.device)
             self.corpus[i].requires_grad = False
+
+        self.corpus = self.corpus[:TRUNC]
 
         # check that things match up
         assert len(self.corpus) == self.size
@@ -274,6 +278,14 @@ class TopKCrossEntropy(torch.nn.Module):
         return torch.nn.functional.cross_entropy(pred_batch, target_batch)
 
 
+def MaxPLoss(pred, target):
+    log_p = torch.nn.functional.log_softmax(pred, dim=-1)
+    
+    select_p = log_p[target == 1]
+
+    return -select_p
+
+
 class AgentLogger(Logger):
     def __init__(self):
         self.train_accs = []
@@ -282,7 +294,10 @@ class AgentLogger(Logger):
         self.train_percs = []
         self.val_percs = []
 
-        self.best_val_acc = 0
+        self.train_probs = []
+        self.val_probs = []
+
+        self.best_val_prob = 0
 
         with open(LOG, 'w') as csvfile:
             spamwriter = csv.writer(csvfile, dialect='excel')
@@ -298,10 +313,12 @@ class AgentLogger(Logger):
 
         this_train_acc = 0
         this_train_perc = 0
+        this_train_prob = 0
         train_seen = 0
 
         this_val_acc = 0
         this_val_perc = 0
+        this_val_prob = 0
         val_seen = 0
 
         train_pred_batched, train_y_batched = train_log
@@ -325,6 +342,8 @@ class AgentLogger(Logger):
                 beat_by = torch.sum(torch.where(train_pred[t] > highest_ev, 1, 0)).item()
                 this_train_perc += 1 - (beat_by / (train_pred[t].numel()-1))
 
+            this_train_prob += torch.sum(torch.nn.functional.softmax(train_pred[t])[train_y[t] == 1])
+
         val_pred_batched, val_y_batched = val_log
         val_pred = []
         val_y = []
@@ -346,39 +365,51 @@ class AgentLogger(Logger):
                 beat_by = torch.sum(torch.where(val_pred[t] > highest_ev, 1, 0)).item()
                 this_val_perc += 1 - (beat_by / (val_pred[t].numel()-1))
 
+            this_val_prob += torch.sum(torch.nn.functional.softmax(val_pred[t])[val_y[t] == 1])
+
         this_train_acc /= max(1, train_seen)
         this_train_perc /= max(1, train_seen)
+        this_train_prob /= max(1, train_seen)
 
         this_val_acc /= max(1, val_seen)
         this_val_perc /= max(1, val_seen)
+        this_val_prob /= max(1, val_seen)
 
         self.train_accs.append(this_train_acc)
         self.train_percs.append(this_train_perc)
+        self.train_probs.append(this_train_prob)
 
         self.val_accs.append(this_val_acc)
         self.val_percs.append(this_val_perc)
+        self.val_probs.append(this_val_prob)
 
         with open(LOG, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
             spamwriter.writerow([len(self.train_accs)-1, this_train_perc, this_val_perc, this_train_acc, this_val_acc])
 
-        fig, ax = plt.subplots(2)
+        fig, ax = plt.subplots(3)
 
-        ax[0].plot(self.val_percs)
-        ax[0].plot(self.train_percs)
-        ax[0].set_title("Percentile of Highest Evidence")
-        ax[0].legend(["val_perc", "train_perc"])
+        ax[0].plot(self.val_probs)
+        ax[0].plot(self.train_probs)
+        ax[0].set_title("Softmax Prob of Evidence")
+        ax[0].legend(["val_prob", "train_prob"])
 
         ax[1].plot(self.val_accs)
         ax[1].plot(self.train_accs)
         ax[1].set_title(r"% Evidence in Rank=1 Prediction")
         ax[1].legend(["val_acc", "train_acc"])
 
+        ax[2].plot(self.val_percs)
+        ax[2].plot(self.train_percs)
+        ax[2].set_title("Percentile of Highest Evidence")
+        ax[2].legend(["val_perc", "train_perc"])
+
+        plt.tight_layout()
         plt.savefig(GRAFF)
         plt.clf()
 
-        if this_val_acc > self.best_val_acc:
-            self.best_val_acc = this_val_acc
+        if this_val_prob > self.best_val_prob:
+            self.best_val_prob = this_val_prob
             self.tokenizer.save_pretrained(CHECKPOINT+"-{}_tokenizer".format(len(self.val_percs)-1))
             self.model.save_pretrained(CHECKPOINT+"-{}".format(len(self.val_percs)-1))
 
@@ -388,7 +419,8 @@ def main():
     train_data = AgentDataset(TRAIN_FILE, TRAIN_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
     val_data = AgentDataset(VAL_FILE, VAL_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
 
-    k_loss = TopKCrossEntropy(TOP_K)
+    # k_loss = TopKCrossEntropy(TOP_K)
+    loss_fn = MaxPLoss
 
     logger = AgentLogger()
     model = Agent()
@@ -399,10 +431,10 @@ def main():
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=10000,
-        num_training_steps=100000,
+        num_training_steps=50000,
     )
 
-    train(model, optimizer, train_data, k_loss, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
+    train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
 
 
 if __name__== '__main__':

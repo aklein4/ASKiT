@@ -7,7 +7,11 @@ from sentence_transformers import SentenceTransformer, util
 
 
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
-SEARCH_MODEL = "checkpoints/Agent-unnorm-77_6"
+
+SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
+#SEARCH_MODEL = "checkpoints/Agent-unnorm-77_6"
+SEARCH_TOKEN_SUFFIX = ""
+
 QA_MODEL = "deepset/bert-base-cased-squad2"
 
 
@@ -30,7 +34,7 @@ class Agent(nn.Module):
     
         self.L_b = SentenceTransformer(ENCODING_MODEL)
         
-        self.L_qF_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL+"_tokenizer")
+        self.L_qF_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL+SEARCH_TOKEN_SUFFIX)
         self.L_qF = AutoModel.from_pretrained(SEARCH_MODEL)
 
         self.b_activation = nn.Sigmoid()
