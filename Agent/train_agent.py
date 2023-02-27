@@ -301,7 +301,7 @@ class AgentLogger(Logger):
 
         with open(LOG, 'w') as csvfile:
             spamwriter = csv.writer(csvfile, dialect='excel')
-            spamwriter.writerow(["epoch", "train_perc", "val_perc", "train_acc", "val_acc"])
+            spamwriter.writerow(["epoch", "train_prob", "val_prob", "train_perc", "val_perc", "train_acc", "val_acc"])
 
 
     def initialize(self, model):
@@ -385,7 +385,7 @@ class AgentLogger(Logger):
 
         with open(LOG, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
-            spamwriter.writerow([len(self.train_accs)-1, this_train_perc, this_val_perc, this_train_acc, this_val_acc])
+            spamwriter.writerow([len(self.train_accs)-1, this_train_prob, this_val_prob, this_train_perc, this_val_perc, this_train_acc, this_val_acc])
 
         fig, ax = plt.subplots(3)
 
