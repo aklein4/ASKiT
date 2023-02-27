@@ -356,7 +356,7 @@ class AgentLogger(Logger):
                 beat_by = torch.sum(torch.where(train_pred[t] > highest_ev, 1, 0)).item()
                 this_train_perc += 1 - (beat_by / (train_pred[t].numel()-1))
 
-            this_train_prob += torch.sum(torch.nn.functional.softmax(train_pred[t])[train_y[t] == 1])
+            this_train_prob += torch.sum(torch.nn.functional.softmax(train_pred[t], dim=-1)[train_y[t] == 1]).item()
 
         val_pred_batched, val_y_batched = val_log
         val_pred = []
@@ -379,7 +379,7 @@ class AgentLogger(Logger):
                 beat_by = torch.sum(torch.where(val_pred[t] > highest_ev, 1, 0)).item()
                 this_val_perc += 1 - (beat_by / (val_pred[t].numel()-1))
 
-            this_val_prob += torch.sum(torch.nn.functional.softmax(val_pred[t])[val_y[t] == 1])
+            this_val_prob += torch.sum(torch.nn.functional.softmax(val_pred[t], dim=-1)[val_y[t] == 1]).item()
 
         this_train_acc /= max(1, train_seen)
         this_train_perc /= max(1, train_seen)
