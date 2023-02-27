@@ -5,6 +5,14 @@ Agent-unnorm-77_6:
     - frens = 1, top_k = 5, noise_decay=2
 
 Agent-unnorm-79_8:
+    - resumed training of Agent-unnorm-77_6
     - bs = 24, lr = 1e-6, AdamW
-    - Half-Cosine schedular: 50000 steps with 10000 warmup
+    - Half-Cosine schedular: 100000 steps with 10000 warmup
     - frens = 1, top_k = 5, noise_decay=2
+
+Agent_p:
+    - Trained on THE FIRST 20,000 ELEMENTS OF TRAINING DATA (validated on normal val set)
+    - bs=24, lr = 1e-6, AdamW
+    - Half-Cosine schedular: 50000 steps with 10000 warmup
+    - frens = 1, noise_decay=2
+    - Uses MaxPLoss over all inputs (no top_k)
