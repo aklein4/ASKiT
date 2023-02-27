@@ -279,10 +279,23 @@ class TopKCrossEntropy(torch.nn.Module):
 
 
 def MaxPLoss(pred, target):
-    log_p = torch.nn.functional.log_softmax(pred, dim=-1)
-    
-    select_p = log_p[target == 1]
+    assert len(pred) == len(target)
 
+    pred_stack = []
+    target_stack = []
+
+    b_size = max([p.numel() for p in pred])
+
+    for i in range(len(pred)):
+        vals, inds = torch.topk(pred[i], b_size)
+        pred_stack.append(pred[i][inds])
+        target_stack.append(target[i][inds])
+
+    pred_batch = torch.stack(pred_stack)
+    target_batch = torch.stack(target_stack)
+
+    log_p = torch.nn.functional.log_softmax(pred_batch, dim=-1)
+    select_p = log_p[target_batch == 1]
     return -select_p
 
 
