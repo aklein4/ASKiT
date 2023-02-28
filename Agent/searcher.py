@@ -9,10 +9,8 @@ from sentence_transformers import SentenceTransformer
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
 
 # SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
-SEARCH_MODEL = "checkpoints/searcher-p_noscale"
+SEARCH_MODEL = "checkpoints/searcher-p"
 SEARCH_TOKEN_SUFFIX = "_tokenizer"
-
-SEARCH_HEAD = None
 
 
 # Take average of all tokens
@@ -31,13 +29,6 @@ class Searcher(nn.Module):
         
         self.search_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL+SEARCH_TOKEN_SUFFIX)
         self.search_encoder = AutoModel.from_pretrained(SEARCH_MODEL)
-        self.search_head = nn.Identity()
-        
-        if head:
-            self.search_head = nn.Linear(1, 1, bias=False)
-            self.search_head.weight = nn.Parameter(torch.ones_like(self.search_head.weight))
-        if SEARCH_HEAD is not None and head:
-            self.search_head.load_state_dict(torch.load(SEARCH_HEAD))
 
 
     def encode(self, corpus):
@@ -56,7 +47,6 @@ class Searcher(nn.Module):
         preds = []
         for i in range(len(sentences)):
             scores = corpuses[i] @ h[i]
-            headed = self.search_head(torch.unsqueeze(scores, dim=1))
-            preds.append(torch.squeeze(headed, dim=1))
+            preds.append(scores)
 
         return preds

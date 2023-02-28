@@ -12,10 +12,11 @@ searcher-top_2:
     - frens = 1, top_k = 5, noise_decay=2
     - trained on TopKCrossEntropy
 
-searcher-p_noscale:
+searcher-p:
     - Trained on THE FIRST 20,000 ELEMENTS OF TRAINING DATA (validated on normal val set)
     - bs=24, lr = 1e-6, AdamW
     - Half-Cosine schedular: 50000 steps with 10000 warmup
     - frens = 1, noise_decay=2
     - Used search_head = identity
     - Uses MaxPLoss over all inputs (no top_k)
+    - Scaling/adding bias to the final result does not help
