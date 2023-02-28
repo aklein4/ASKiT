@@ -26,7 +26,7 @@ LOG = "./logs/searcher-p_scaled.csv"
 GRAFF = "./logs/searcher-p_scaled.png"
 
 LR = 1e-6
-BATCH_SIZE = 24
+BATCH_SIZE = 128
 
 N_FRENS = 1
 NOISE_DECAY = 2
@@ -440,17 +440,17 @@ def main():
     logger = SearchLogger()
     model = Searcher()
 
-    model.encoder.requires_grad = False
-    model.search_encoder.requires_grad = True
-    model.search_head.requires_grad = True
+    model.encoder.requires_grad_ = False
+    model.search_encoder.requires_grad_ = False
+    model.search_head.requires_grad_ = True
 
     model = model.cuda()
 
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=2000,
-        num_training_steps=10000,
+        num_warmup_steps=200,
+        num_training_steps=1000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
