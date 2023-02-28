@@ -318,8 +318,9 @@ class SearchLogger(Logger):
 
 
     def initialize(self, model):
-        self.tokenizer = model.L_qF_tokenizer
-        self.model = model.L_qF
+        self.tokenizer = model.search_tokenizer
+        self.model = model.search_encoder
+        self.head = model.search_head
     
 
     def log(self, train_log, val_log):
@@ -425,6 +426,7 @@ class SearchLogger(Logger):
             self.best_val_prob = this_val_prob
             self.tokenizer.save_pretrained(CHECKPOINT+"-{}_tokenizer".format(len(self.val_percs)-1))
             self.model.save_pretrained(CHECKPOINT+"-{}".format(len(self.val_percs)-1))
+            torch.save(self.head.state_dict(), CHECKPOINT+"-{}_head".format(len(self.val_percs)-1))
 
 
 def main():
@@ -444,7 +446,7 @@ def main():
 
     model = model.cuda()
 
-    optimizer = torch.optim.AdamW(params=model.L_qF.parameters(), lr=LR)
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=2000,
