@@ -440,9 +440,12 @@ def main():
     logger = SearchLogger()
     model = Searcher()
 
-    model.encoder.requires_grad_ = False
-    model.search_encoder.requires_grad_ = False
-    model.search_head.requires_grad_ = True
+    for p in model.encoder.parameters():
+        p.requires_grad = False
+    for p in model.search_encoder.parameters():
+        p.requires_grad = False
+    for p in model.search_head.parameters():
+        p.requires_grad = True
 
     model = model.cuda()
 

@@ -24,7 +24,7 @@ def mean_pooling(model_output, attention_mask):
 
 class Searcher(nn.Module):
 
-    def __init__(self):
+    def __init__(self, head=True):
         super().__init__()
     
         self.encoder = SentenceTransformer(ENCODING_MODEL)
@@ -33,8 +33,10 @@ class Searcher(nn.Module):
         self.search_encoder = AutoModel.from_pretrained(SEARCH_MODEL)
         self.search_head = nn.Identity()
         
-        if SEARCH_HEAD is not None:
-            self.search_head = nn.Linear(1, 1, bias=True)
+        if head:
+            self.search_head = nn.Linear(1, 1, bias=False)
+            self.search_head.weight = nn.Parameter(torch.ones_like(self.search_head.weight))
+        if SEARCH_HEAD is not None and head:
             self.search_head.load_state_dict(torch.load(SEARCH_HEAD))
 
 
@@ -53,6 +55,8 @@ class Searcher(nn.Module):
 
         preds = []
         for i in range(len(sentences)):
-            preds.append(self.search_head(corpuses[i] @ h[i]))
+            scores = corpuses[i] @ h[i]
+            headed = self.search_head(torch.unsqueeze(scores, dim=1))
+            preds.append(torch.squeeze(headed, dim=1))
 
         return preds
