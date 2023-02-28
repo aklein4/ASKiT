@@ -2,15 +2,15 @@
 import torch
 import torch.nn as nn
 
-from transformers import AutoTokenizer, BertForQuestionAnswering, AutoModel
-from sentence_transformers import SentenceTransformer, util
+from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
 
 
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
 
-SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
-# SEARCH_MODEL = "checkpoints/Agent-unnorm-77_6"
-SEARCH_TOKEN_SUFFIX = ""
+# SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
+SEARCH_MODEL = "checkpoints/searcher-p_noscale"
+SEARCH_TOKEN_SUFFIX = "_tokenizer"
 
 SEARCH_HEAD = None
 
@@ -31,9 +31,10 @@ class Searcher(nn.Module):
         
         self.search_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL+SEARCH_TOKEN_SUFFIX)
         self.search_encoder = AutoModel.from_pretrained(SEARCH_MODEL)
+        self.search_head = nn.Identity()
         
-        self.search_head = nn.Linear(1, 1, bias=True)
         if SEARCH_HEAD is not None:
+            self.search_head = nn.Linear(1, 1, bias=True)
             self.search_head.load_state_dict(torch.load(SEARCH_HEAD))
 
 

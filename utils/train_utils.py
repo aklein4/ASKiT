@@ -93,9 +93,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
         rolling_tot_loss = 0
         rollong_loss_num = 0
 
-        with tqdm(range(0, len(train_data), batch_size*skip), leave=False, desc="Training") as pbar:
-            pbar.set_postfix({'epoch': epoch, 'step': step})
-            for b in pbar:
+        with tqdm(range(0, len(train_data), batch_size*skip), leave=False, desc="Training") as pbar_train:
+            pbar_train.set_postfix({'epoch': epoch, 'step': step})
+            for b in pbar_train:
                 step += 1
 
                 x, y = train_data[b, batch_size]
@@ -139,67 +139,67 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rolling_tot_loss += loss.item()
                 rollong_loss_num += 1
 
-                pbar.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num})
+                pbar_train.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num})
         
-        train_log = (train_preds, train_y)
-        
-        val_log = None
-        
-        if val_data is not None:
+            train_log = (train_preds, train_y)
             
-            val_preds = []
-            val_y = []
+            val_log = None
             
-            model.eval()
+            if val_data is not None:
+                
+                val_preds = []
+                val_y = []
+                
+                model.eval()
 
-            rolling_tot_loss = 0
-            rollong_loss_num = 0
+                rolling_tot_loss = 0
+                rollong_loss_num = 0
 
-            with torch.no_grad():
-                with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
-                    pbar.set_postfix({'epoch': epoch})
-                    for b in pbar:
-                        x, y = val_data[b, batch_size]
+                with torch.no_grad():
+                    with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
+                        pbar.set_postfix({'epoch': epoch})
+                        for b in pbar:
+                            x, y = val_data[b, batch_size]
 
-                        pred = model.forward(x)
-                        
-                        loss = loss_fn(pred, y)
-                        
-                        val_preds.append(pred)
-                        val_y.append(y)
- 
-                        mem_use = "N/A"
-                        try:
-                            mem_use = torch.cuda.memory_allocated(0) * 1e-9
-                        except:
-                            pass
+                            pred = model.forward(x)
+                            
+                            loss = loss_fn(pred, y)
+                            
+                            val_preds.append(pred)
+                            val_y.append(y)
+    
+                            mem_use = "N/A"
+                            try:
+                                mem_use = torch.cuda.memory_allocated(0) * 1e-9
+                            except:
+                                pass
 
-                        if isinstance(val_preds[-1], list):
-                            for k in range(len(val_preds[-1])):
-                                val_preds[-1][k] = val_preds[-1][k].detach()
-                        else:
-                            val_preds[-1] = val_preds[-1].detach()
+                            if isinstance(val_preds[-1], list):
+                                for k in range(len(val_preds[-1])):
+                                    val_preds[-1][k] = val_preds[-1][k].detach()
+                            else:
+                                val_preds[-1] = val_preds[-1].detach()
 
-                        if isinstance(val_y[-1], list):
-                            for k in range(len(val_y[-1])):
-                                val_y[-1][k] = val_y[-1][k].detach()
-                        else:
-                            val_y[-1] = val_y[-1].detach()
-                        
-                        rolling_tot_loss *= rolling_avg
-                        rollong_loss_num *= rolling_avg
+                            if isinstance(val_y[-1], list):
+                                for k in range(len(val_y[-1])):
+                                    val_y[-1][k] = val_y[-1][k].detach()
+                            else:
+                                val_y[-1] = val_y[-1].detach()
+                            
+                            rolling_tot_loss *= rolling_avg
+                            rollong_loss_num *= rolling_avg
 
-                        rolling_tot_loss += loss.item()
-                        rollong_loss_num += 1
+                            rolling_tot_loss += loss.item()
+                            rollong_loss_num += 1
 
-                        pbar.set_postfix({'epoch': epoch, 'loss': rolling_tot_loss / rollong_loss_num, 'mem_use': mem_use})
+                            pbar.set_postfix({'epoch': epoch, 'loss': rolling_tot_loss / rollong_loss_num, 'mem_use': mem_use})
+                
+                val_log = (val_preds, val_y)
             
-            val_log = (val_preds, val_y)
-        
-        if logger is not None:
-            logger.log(train_log, val_log)
-        
-        
+                if logger is not None:
+                    logger.log(train_log, val_log)
+            
+            
 
-        
+            
 

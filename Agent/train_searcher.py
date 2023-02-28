@@ -21,9 +21,9 @@ TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-CHECKPOINT = "./checkpoints/searcher-scaled"
-LOG = "./logs/searcher-scaled.csv"
-GRAFF = "./logs/searcher-scaled.png"
+CHECKPOINT = "./checkpoints/searcher-p_scaled"
+LOG = "./logs/searcher-p_scaled.csv"
+GRAFF = "./logs/searcher-p_scaled.png"
 
 LR = 1e-6
 BATCH_SIZE = 24
@@ -447,8 +447,8 @@ def main():
     optimizer = torch.optim.AdamW(params=model.L_qF.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=1000,
-        num_training_steps=5000,
+        num_warmup_steps=2000,
+        num_training_steps=10000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
