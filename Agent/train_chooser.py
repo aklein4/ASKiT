@@ -29,7 +29,7 @@ LOG = "./logs/chooser.csv"
 GRAFF = "./logs/chooser.png"
 
 LR = 1e-6
-BATCH_SIZE = 1
+BATCH_SIZE = 4
 
 N_FRENS = 1
 NOISE_DECAY = 2
@@ -50,9 +50,8 @@ class ChooseDataset:
         self.data = None
         with open(file, 'r') as f:
             self.data = json.load(f)
-
         self.data = self.data[:TRUNC]
-
+        
         for p in self.data:
             p["raw_corpus"] = []
             for c in range(len(p["corpus"])):
@@ -60,18 +59,15 @@ class ChooseDataset:
                 for s in p["corpus"][c]:
                     p["raw_corpus"].append(title + s)
 
-        # how big is it?
-        self.size = len(self.data)
-
         # load all of the embeddings
         self.corpus = torch.load(corpus_encodings)
+        self.corpus = self.corpus[:TRUNC]
         for i in range(len(self.corpus)):
             self.corpus[i] = self.corpus[i].to(self.device)
             self.corpus[i].requires_grad = False
+            assert self.corpus[i].shape[0] == len(self.data[i]["raw_corpus"])
 
-        self.corpus = self.corpus[:TRUNC]
-
-        # check that things match up
+        self.size = len(self.data)
         assert len(self.corpus) == self.size
 
         # get targets with 1 as evidence, zero else (corresponding to emeddings)
@@ -221,14 +217,21 @@ class ChooseDataset:
             target = [target]
 
             x_corpus = [self.corpus[i]]
+            raw_corpus = self.data[i]["raw_corpus"].copy()
 
             for c in range(self.n_frens):
-                fren = self.corpus[self.frens[(i+c) % self.size]]
+                fren_ind = self.frens[(i+c) % self.size]
 
+                fren = self.corpus[fren_ind]    
                 x_corpus.append(fren)
+
+                raw_corpus += self.data[fren_ind]["raw_corpus"]
+
                 target.append(torch.zeros([fren.shape[0]], dtype=torch.float32, device=self.device))
 
             assert len(x_corpus) == len(target)
+            if sum(c.shape[0] for c in x_corpus) != len(raw_corpus):
+                raise ValueError("x_corpus size ({}) != raw_corpus size ({}) at index {}".format(sum(c.shape[0] for c in x_corpus), len(raw_corpus), i))
 
             actions = []
 
@@ -237,16 +240,16 @@ class ChooseDataset:
                 x_corpus = torch.cat(x_corpus)
                 target = torch.cat(target)
 
-                scores = self.searcher(([state], [x_corpus]))
-                _, top_inds = torch.topk(scores, self.top_k)
+                scores = self.searcher(([state], [x_corpus.to(torch.float32)]))
+                _, top_inds = torch.topk(scores[0], self.top_k)
 
             target = target[top_inds]
-            target = torch.cat(target, torch.zeros([0,], dtype=target.dtype, device=target.device))
+            target = torch.cat([target, torch.zeros([1,], dtype=target.dtype, device=target.device)])
             if torch.sum(target).item() == 0:
                 target[-1] = 1
 
-            for ind in top_inds:
-                actions.append(self.data[i]["raw_corpus"][ind])
+            for ind in range(top_inds.shape[0]):
+                actions.append(raw_corpus[top_inds[ind]])
             actions.append("")
 
             self.x.append((state, actions))
@@ -275,7 +278,7 @@ class ChooseDataset:
             x_states.append([state] * len(actions))
             x_actions.append(actions)
 
-            y.append(self.y[ind])
+            y.append(self.y[ind].cuda())
 
         return (x_states, x_actions), y
 
@@ -286,9 +289,9 @@ class ChooseLogger(SearchLogger):
 
 
     def initialize(self, model: Chooser):
-        self.tokenizer = model.act_tokenizer
-        self.encoder = model.act_encoder
-        self.head = model.act_head
+        self.tokenizer = model.tokenizer
+        self.encoder = model.encoder
+        self.head = model.head
     
 
     def save_checkpoint(self):
@@ -297,7 +300,7 @@ class ChooseLogger(SearchLogger):
 
         self.tokenizer.save_pretrained(os.path.join(folder, "tokenizer"))
         self.encoder.save_pretrained(os.path.join(folder, "encoder"))
-        torch.save(self.head.state_dict(), os.path.join(folder, "head"))
+        torch.save(self.head.state_dict(), os.path.join(folder, "head.pt"))
 
 
 def main():
@@ -320,8 +323,8 @@ def main():
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=20000,
-        num_training_steps=100000,
+        num_warmup_steps=15000,
+        num_training_steps=80000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
