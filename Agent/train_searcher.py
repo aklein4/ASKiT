@@ -423,8 +423,11 @@ class SearchLogger(Logger):
 
         if this_val_prob > self.best_val_prob:
             self.best_val_prob = this_val_prob
-            self.tokenizer.save_pretrained(CHECKPOINT+"-{}_tokenizer".format(len(self.val_percs)-1))
-            self.model.save_pretrained(CHECKPOINT+"-{}".format(len(self.val_percs)-1))
+            self.save_checkpoint()
+    
+    def save_checkpoint(self):
+        self.tokenizer.save_pretrained(CHECKPOINT+"-{}_tokenizer".format(len(self.val_percs)-1))
+        self.model.save_pretrained(CHECKPOINT+"-{}".format(len(self.val_percs)-1))
 
 
 def main():
@@ -440,14 +443,18 @@ def main():
 
     for p in model.encoder.parameters():
         p.requires_grad = False
+    for p in model.search_encoder.parameters():
+        p.requires_grad = False
+    for p in model.search_head.parameters():
+        p.requires_grad = True
 
     model = model.cuda()
 
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=10000,
-        num_training_steps=50000,
+        num_warmup_steps=200,
+        num_training_steps=1000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
