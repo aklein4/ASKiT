@@ -33,9 +33,9 @@ class Chooser(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
             self.encoder = AutoModel.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(load + "/act_tokenizer")
-            self.encoder = AutoModel.from_pretrained(load + "/act_encoder")
-            self.head.load_state_dict(torch.load(load + "/act_head.pt"))
+            self.tokenizer = AutoTokenizer.from_pretrained(load + "/tokenizer")
+            self.encoder = AutoModel.from_pretrained(load + "/encoder")
+            self.head.load_state_dict(torch.load(load + "head.pt"))
 
         # self.sub_tokenizer = None
         # self.sub_encoder = None
@@ -78,10 +78,18 @@ class Chooser(nn.Module):
                 vec_states += states[l]
                 vec_actions += actions[l]
 
-        toks = self.act_tokenizer(states, actions, padding=True, truncation=True, return_tensors='pt')
-        cls_enc = self.act_encoder(toks["input_ids"], token_type_ids=toks["token_type_ids"], attention_mask=toks['attention_mask']).last_hidden_state[:,0]
+        try:
+            toks = self.tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
+            cls_enc = self.encoder(
+                    toks["input_ids"].to(self.encoder.device),
+                    token_type_ids=toks["token_type_ids"].to(self.encoder.device),
+                    attention_mask=toks['attention_mask'].to(self.encoder.device)
+            ).last_hidden_state[:,0]
 
-        preds = self.act_head(cls_enc)[:,0]
+            preds = self.head(cls_enc)[:,0]
+        except:
+            print("Encoding Error Caught")
+            preds = torch.zeros([len(vec_states)], device=self.encoder.device, dtype=torch.float32, requires_grad=True)
 
         start = 0
         if batched:
@@ -92,7 +100,7 @@ class Chooser(nn.Module):
                 end = start + len(states[l])
                 pred_list.append(preds[start:end])
                 start = end
-            
+
             return pred_list
 
         return preds
