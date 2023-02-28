@@ -1,18 +1,21 @@
 
-Agent-unnorm-77_6:
+searcher-top_1:
     - bs = 24, lr = 1e-6, AdamW
     - linear schedular: 50000 steps with 10000 warmup
     - frens = 1, top_k = 5, noise_decay=2
+    - trained on TopKCrossEntropy
 
-Agent-unnorm-79_8:
-    - resumed training of Agent-unnorm-77_6
+searcher-top_2:
+    - resumed training of searcher-top_2
     - bs = 24, lr = 1e-6, AdamW
     - Half-Cosine schedular: 100000 steps with 10000 warmup
     - frens = 1, top_k = 5, noise_decay=2
+    - trained on TopKCrossEntropy
 
-Agent_p:
+searcher-p_noscale:
     - Trained on THE FIRST 20,000 ELEMENTS OF TRAINING DATA (validated on normal val set)
     - bs=24, lr = 1e-6, AdamW
     - Half-Cosine schedular: 50000 steps with 10000 warmup
     - frens = 1, noise_decay=2
+    - Used search_head = identity
     - Uses MaxPLoss over all inputs (no top_k)

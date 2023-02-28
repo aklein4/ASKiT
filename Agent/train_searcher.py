@@ -1,13 +1,12 @@
 
 import torch
-from transformers import AdamW, get_cosine_schedule_with_warmup
+from transformers import get_cosine_schedule_with_warmup
 
-from agent import Agent
+from searcher import Searcher
 
 import json
 import random
 import csv
-import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
@@ -22,9 +21,9 @@ TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-CHECKPOINT = "./checkpoints/Agent_p"
-LOG = "./logs/Agent_p.csv"
-GRAFF = "./logs/Agent_p.png"
+CHECKPOINT = "./checkpoints/searcher-scaled"
+LOG = "./logs/searcher-scaled.csv"
+GRAFF = "./logs/searcher-scaled.png"
 
 LR = 1e-6
 BATCH_SIZE = 24
@@ -36,7 +35,7 @@ TOP_K = 5
 SKIP = 1
 TRUNC = 20000
 
-class AgentDataset:
+class SearchDataset:
 
     def __init__(self, file, corpus_encodings, n_frens=None, noise_decay=None, device=torch.device("cpu")):
 
@@ -300,7 +299,7 @@ def MaxPLoss(pred, target):
     return -loss / len(pred)
 
 
-class AgentLogger(Logger):
+class SearchLogger(Logger):
     def __init__(self):
         self.train_accs = []
         self.val_accs = []
@@ -430,22 +429,26 @@ class AgentLogger(Logger):
 
 def main():
 
-    train_data = AgentDataset(TRAIN_FILE, TRAIN_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
-    val_data = AgentDataset(VAL_FILE, VAL_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
+    train_data = SearchDataset(TRAIN_FILE, TRAIN_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
+    val_data = SearchDataset(VAL_FILE, VAL_ENCODINGS, N_FRENS, NOISE_DECAY, device=torch.device("cuda"))
 
     # k_loss = TopKCrossEntropy(TOP_K)
     loss_fn = MaxPLoss
 
-    logger = AgentLogger()
-    model = Agent()
-    model.L_qF.requires_grad = True
+    logger = SearchLogger()
+    model = Searcher()
+
+    model.encoder.requires_grad = False
+    model.search_encoder.requires_grad = True
+    model.search_head.requires_grad = True
+
     model = model.cuda()
 
     optimizer = torch.optim.AdamW(params=model.L_qF.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=10000,
-        num_training_steps=50000,
+        num_warmup_steps=1000,
+        num_training_steps=5000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)

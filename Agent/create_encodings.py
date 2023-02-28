@@ -1,7 +1,7 @@
 
 import torch
 
-from agent import Agent
+from searcher import Searcher
 
 import json
 from tqdm import tqdm
@@ -19,7 +19,7 @@ def main():
     with open(IN_FILE, 'r') as f:
         data = json.load(f)
 
-    model = Agent()
+    model = Searcher()
     model = model.cuda()
     
     encodings = []
