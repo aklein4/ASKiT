@@ -9,7 +9,7 @@ import random
 TEST_FILE = "../local_data/hotpot_data/val.json"
 ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-K_TOP = 45
+K_TOP = 10
 
 def main():
     
@@ -40,9 +40,9 @@ def main():
         corpse = torch.cat(corpse)
 
         corpus_scores = model.forward(([p["question"]], [corpse]))[0]
-        tot_size += corpse.shape[0]
+        tot_size += len(p["evidence_sentences"])
 
-        tot_perc += 1 - (torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)) / (corpus_scores.shape[0] - 1)).item()
+        tot_perc += 1 - (torch.sum(torch.where(corpus_scores > torch.min(corpus_scores[p["evidence_raw_ids"]]), 1, 0)) / (corpus_scores.shape[0] - 1)).item()
 
         tot_bests += torch.sum(torch.where(corpus_scores > torch.max(corpus_scores[p["evidence_raw_ids"]]), 1, 0)).item() + 1
         
