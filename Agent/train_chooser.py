@@ -303,6 +303,32 @@ class ChooseLogger(SearchLogger):
         torch.save(self.head.state_dict(), os.path.join(folder, "head.pt"))
 
 
+class PMetric:
+    def __init__(self):
+        title = 'p'
+    
+    def __call__(self, pred, target):
+        assert len(pred) == len(target)
+
+        pred_stack = []
+        target_stack = []
+
+        b_size = min([p.numel() for p in pred])
+
+        for i in range(len(pred)):
+            vals, inds = torch.topk(pred[i], b_size)
+            pred_stack.append(pred[i][inds])
+            target_stack.append(target[i][inds])
+
+        pred_batch = torch.stack(pred_stack)
+        target_batch = torch.stack(target_stack)
+
+        log_p = torch.nn.functional.softmax(pred_batch, dim=-1)
+
+        loss = torch.sum(torch.where(target_batch == 1, log_p, torch.zeros_like(log_p)))
+        return loss.item() / len(pred)
+
+
 def main():
 
     searcher = Searcher()
@@ -316,6 +342,7 @@ def main():
     loss_fn = MaxPLoss
 
     logger = ChooseLogger(log_loc=LOG, graff=GRAFF)
+    met = PMetric()
 
     model = Chooser()
     model = model.cuda()
@@ -327,7 +354,7 @@ def main():
         num_training_steps=80000,
     )
 
-    train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP)
+    train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP, rolling_avg=0.99, metric=met)
 
 
 if __name__== '__main__':

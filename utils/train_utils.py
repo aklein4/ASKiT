@@ -68,7 +68,7 @@ class Logger:
         return
 
 
-def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None, skip=1, rolling_avg=0.95):
+def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None, batch_size=1, shuffle_train=True, logger=None, lr_scheduler=None, skip=1, rolling_avg=0.95, metric=None):
     
     if logger is not None:
         logger.initialize(model)
@@ -90,6 +90,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
 
         model.train()
 
+        rolling_metric = 0
         rolling_tot_loss = 0
         rollong_loss_num = 0
 
@@ -139,7 +140,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rolling_tot_loss += loss.item()
                 rollong_loss_num += 1
 
-                pbar_train.set_postfix({'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num})
+                postfix = {'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num}
+
+                if metric is not None:
+                    rolling_metric += metric(train_preds[-1], train_y[-1])
+                    postfix[metric.title] = rolling_metric / rollong_loss_num
+
+                pbar_train.set_postfix()
         
             train_log = (train_preds, train_y)
             
@@ -152,6 +159,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 
                 model.eval()
 
+                rolling_metric = 0
                 rolling_tot_loss = 0
                 rollong_loss_num = 0
 
@@ -192,7 +200,14 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                             rolling_tot_loss += loss.item()
                             rollong_loss_num += 1
 
-                            pbar.set_postfix({'epoch': epoch, 'loss': rolling_tot_loss / rollong_loss_num, 'mem_use': mem_use})
+                            postfix = {'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num}
+
+                        if metric is not None:
+                            rolling_metric *= rolling_avg
+                            rolling_metric += metric(val_preds[-1], val_y[-1])
+                            postfix[metric.title] = rolling_metric / rollong_loss_num
+
+                            pbar.set_postfix(postfix)
                 
                 val_log = (val_preds, val_y)
             
