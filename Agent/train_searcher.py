@@ -355,7 +355,7 @@ class SearchLogger(Logger):
                 this_train_acc += 1
                 this_train_perc += 1
             else:
-                beat_by = torch.sum(torch.where(train_pred[t] > highest_ev, 1, 0)).item()
+                beat_by = torch.sum(torch.where(train_pred[t] > torch.min(train_pred[t][train_y[t] == 1]), 1, 0)).item()
                 this_train_perc += 1 - (beat_by / (train_pred[t].numel()-1))
 
             this_train_prob += torch.sum(torch.nn.functional.softmax(train_pred[t], dim=-1)[train_y[t] == 1]).item()
@@ -378,7 +378,7 @@ class SearchLogger(Logger):
                 this_val_acc += 1
                 this_val_perc += 1
             else:
-                beat_by = torch.sum(torch.where(val_pred[t] > highest_ev, 1, 0)).item()
+                beat_by = torch.sum(torch.where(val_pred[t] > torch.min(val_pred[t][val_y[t] == 1]), 1, 0)).item()
                 this_val_perc += 1 - (beat_by / (val_pred[t].numel()-1))
 
             this_val_prob += torch.sum(torch.nn.functional.softmax(val_pred[t], dim=-1)[val_y[t] == 1]).item()

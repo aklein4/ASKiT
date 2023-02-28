@@ -84,9 +84,8 @@ class Chooser(nn.Module):
                     attention_mask=toks['attention_mask'].to(self.encoder.device)
             ).pooler_output
 
-            preds = self.head(out)
+            preds = self.head(out)[:,0]
         except:
-            print("Encoding Error Caught")
             preds = torch.zeros([len(vec_states)], device=self.encoder.device, dtype=torch.float32, requires_grad=True)
 
         start = 0

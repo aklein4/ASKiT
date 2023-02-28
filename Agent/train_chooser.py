@@ -36,7 +36,7 @@ NOISE_DECAY = 2
 TOP_K = 10
 
 SKIP = 1
-TRUNC = 20000
+TRUNC = 100
 
 class ChooseDataset:
 
