@@ -23,10 +23,8 @@ class Chooser(nn.Module):
         self.tokenizer = None
         self.encoder = None
         self.head = nn.Sequential(
-            nn.Linear(256, 64, bias=True),
-            nn.Dropout(p=0.1),
-            nn.ELU(),
-            nn.Linear(64, 1, bias=True)
+            #nn.Linear(256, 64, bias=True),
+            nn.Linear(256, 1, bias=False)
         )
 
         if load is None:
@@ -80,13 +78,13 @@ class Chooser(nn.Module):
 
         try:
             toks = self.tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
-            cls_enc = self.encoder(
+            out = self.encoder(
                     toks["input_ids"].to(self.encoder.device),
                     token_type_ids=toks["token_type_ids"].to(self.encoder.device),
                     attention_mask=toks['attention_mask'].to(self.encoder.device)
-            ).last_hidden_state[:,0]
+            ).pooler_output
 
-            preds = self.head(cls_enc)[:,0]
+            preds = self.head(out)
         except:
             print("Encoding Error Caught")
             preds = torch.zeros([len(vec_states)], device=self.encoder.device, dtype=torch.float32, requires_grad=True)

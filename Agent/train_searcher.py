@@ -300,7 +300,7 @@ def MaxPLoss(pred, target):
 
 
 class SearchLogger(Logger):
-    def __init__(self):
+    def __init__(self, log_loc=LOG, graff=GRAFF):
         self.train_accs = []
         self.val_accs = []
 
@@ -312,7 +312,10 @@ class SearchLogger(Logger):
 
         self.best_val_prob = 0
 
-        with open(LOG, 'w') as csvfile:
+        self.log_loc = log_loc
+        self.graff = graff
+
+        with open(self.log_loc, 'w') as csvfile:
             spamwriter = csv.writer(csvfile, dialect='excel')
             spamwriter.writerow(["epoch", "train_prob", "val_prob", "train_perc", "val_perc", "train_acc", "val_acc"])
 
@@ -396,7 +399,7 @@ class SearchLogger(Logger):
         self.val_percs.append(this_val_perc)
         self.val_probs.append(this_val_prob)
 
-        with open(LOG, 'a') as csvfile:
+        with open(self.log_loc, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
             spamwriter.writerow([len(self.train_accs)-1, this_train_prob, this_val_prob, this_train_perc, this_val_perc, this_train_acc, this_val_acc])
 
@@ -418,7 +421,7 @@ class SearchLogger(Logger):
         ax[2].legend(["val_perc", "train_perc"])
 
         plt.tight_layout()
-        plt.savefig(GRAFF)
+        plt.savefig(self.graff)
         plt.clf()
 
         if this_val_prob > self.best_val_prob:

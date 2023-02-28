@@ -24,9 +24,9 @@ TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-CHECKPOINT = "./checkpoints/chooser"
-LOG = "./logs/chooser.csv"
-GRAFF = "./logs/chooser.png"
+CHECKPOINT = "./checkpoints/chooser-nat"
+LOG = "./logs/chooser-nat.csv"
+GRAFF = "./logs/chooser-nat.png"
 
 LR = 1e-6
 BATCH_SIZE = 4
@@ -250,7 +250,7 @@ class ChooseDataset:
 
             for ind in range(top_inds.shape[0]):
                 actions.append(raw_corpus[top_inds[ind]])
-            actions.append("")
+            actions.append(" .") # TODO: should this be "" or "<something>"
 
             self.x.append((state, actions))
             self.y.append(target)
@@ -284,8 +284,8 @@ class ChooseDataset:
 
 
 class ChooseLogger(SearchLogger):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, log_loc=LOG, graff=GRAFF):
+        super().__init__(log_loc=log_loc, graff=graff)
 
 
     def initialize(self, model: Chooser):
@@ -315,9 +315,9 @@ def main():
     # k_loss = TopKCrossEntropy(TOP_K)
     loss_fn = MaxPLoss
 
-    logger = ChooseLogger()
-    model = Chooser()
+    logger = ChooseLogger(log_loc=LOG, graff=GRAFF)
 
+    model = Chooser()
     model = model.cuda()
 
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
