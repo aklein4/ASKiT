@@ -5,6 +5,9 @@ import torch.nn as nn
 from transformers import AutoTokenizer, BertForQuestionAnswering, AutoModel
 from sentence_transformers import SentenceTransformer, util
 
+"""
+At some point this will handle the RL agent functionality
+"""
 
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
 
