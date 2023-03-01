@@ -17,7 +17,7 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
      - [x] Semantic Search Pretraining
      - [x] Policy pretraining
      - [ ] PPO RL fine-tuning
- - [ ] 2. Intermediate Question Interpretation
+ - [ ] 2. Intermediate Question Asking
      - [ ] Question-inversion pretraining
      - [ ] Monte-carlo/action-evaluation fine-tuning
  - [ ] 3. Recursive Question Asking
