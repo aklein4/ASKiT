@@ -36,7 +36,7 @@ NOISE_DECAY = 2
 TOP_K = 10
 
 SKIP = 1
-TRUNC = 100
+TRUNC = 20000
 
 class ChooseDataset:
 
@@ -305,7 +305,7 @@ class ChooseLogger(SearchLogger):
 
 class PMetric:
     def __init__(self):
-        title = 'p'
+        self.title = 'p'
     
     def __call__(self, pred, target):
         assert len(pred) == len(target)
