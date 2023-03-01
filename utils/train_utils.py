@@ -143,6 +143,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 postfix = {'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num}
 
                 if metric is not None:
+                    rolling_metric *= rolling_avg
                     rolling_metric += metric(train_preds[-1], train_y[-1])
                     postfix[metric.title] = rolling_metric / rollong_loss_num
 
