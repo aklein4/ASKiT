@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import sys
 sys.path.append("../utils")
-from train_utils import Logger, train
+from train_utils import Logger, train, get_mem_use
 
 
 TRAIN_FILE = "../local_data/hotpot_data/train.json"
@@ -37,6 +37,9 @@ TOP_K = 10
 
 SKIP = 1
 TRUNC = 20000
+
+MEM_THRESH = 0.8
+
 
 class ChooseDataset:
 
@@ -261,7 +264,8 @@ class ChooseDataset:
 
 
     def __getitem__(self, getter):
-        torch.cuda.empty_cache()
+        if get_mem_use() >= MEM_THRESH:
+            torch.cuda.empty_cache()
 
         index = getter
         batchsize = 1

@@ -4,6 +4,22 @@ import torch
 from tqdm import tqdm
 import os
 
+# nvidia-ml-py3
+import nvidia_smi
+nvidia_smi.nvmlInit()
+
+
+def get_mem_use():
+    max_use = 0
+    deviceCount = nvidia_smi.nvmlDeviceGetCount()
+    for i in range(deviceCount):
+        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
+        info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+        use_perc = round(info.free / info.total, 2)
+        max_use = max(max_use, use_perc)
+    return max_use
+
+
 class TensorDataset:
 
     def __init__(self, x_file, y_file, target_type=torch.float32):
@@ -140,7 +156,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rolling_tot_loss += loss.item()
                 rollong_loss_num += 1
 
-                postfix = {'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num}
+                postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
 
                 if metric is not None:
                     rolling_metric *= rolling_avg
@@ -201,7 +217,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                             rolling_tot_loss += loss.item()
                             rollong_loss_num += 1
 
-                            postfix = {'epoch': epoch, 'step': step, 'mem_use': mem_use, 'loss': rolling_tot_loss / rollong_loss_num}
+                            postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
 
                             if metric is not None:
                                 rolling_metric *= rolling_avg
