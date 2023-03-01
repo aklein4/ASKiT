@@ -28,7 +28,10 @@ class Chooser(nn.Module):
 
         # turn transformer output into single scalar
         self.head = nn.Sequential(
-            nn.Linear(256, 1, bias=False)
+            nn.Dropout(p=0.25),
+            nn.Linear(256, 64, bias=True),
+            nn.ELU(),
+            nn.Linear(64, 1, bias=False)
         )
 
         # from cls version
