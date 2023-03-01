@@ -15,6 +15,6 @@ This dataset [https://paperswithcode.com/dataset/qa2d](https://paperswithcode.co
 
 ## Notes
 
- - Is there a pretrained model to do this for us?
+ - Is there a pretrained model to do this for us? (yes)
  - Make sure this is robust in handling short-answer and yes/no questions.
  - Could we get away with symbolic rules? (ex. Replace 'who'/'what' with the answer)
