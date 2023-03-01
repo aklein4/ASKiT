@@ -9,65 +9,68 @@ from transformers import AutoModel, AutoTokenizer
 """
 https://huggingface.co/mrm8488/bert-medium-finetuned-squadv2
 """
-
-TOKENIZER = None
-MODEL = None
-HEAD = None
-
+PRETRAINED = "mrm8488/bert-mini-5-finetuned-squadv2"
 
 class Chooser(nn.Module):
     
     def __init__(self, load=None):
+        """ More accurate search model to choose evidence sentences.
+        - Uses each sentence as evidence, so slower but more accurate than Searcher
+
+        Args:
+            load (_type_, optional): Folder of checkpoint to load, otherwise pretrained. Defaults to None.
+        """
         super().__init__()
         
+        # transformer
         self.tokenizer = None
         self.encoder = None
+
+        # turn transformer output into single scalar
         self.head = nn.Sequential(
-            #nn.Linear(256, 64, bias=True),
             nn.Linear(256, 1, bias=False)
         )
 
+        # from cls version
+        # self.head = nn.Sequential(
+        #     nn.Linear(256, 64, bias=False),
+        #     nn.Dropout(p=0.1),
+        #     nn.ELU(), # tanh is probably better
+        #     nn.Linear(64, 1, bias=False)
+        # )
+
+        # load model data
         if load is None:
-            self.tokenizer = AutoTokenizer.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
-            self.encoder = AutoModel.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
+            self.tokenizer = AutoTokenizer.from_pretrained(PRETRAINED)
+            self.encoder = AutoModel.from_pretrained(PRETRAINED)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(load + "/tokenizer")
             self.encoder = AutoModel.from_pretrained(load + "/encoder")
             self.head.load_state_dict(torch.load(load + "head.pt"))
 
-        # self.sub_tokenizer = None
-        # self.sub_encoder = None
-        # self.sub_head = nn.Linear(256, 1, bias=True)
-        # if load is None:
-        #     self.sub_tokenizer = AutoTokenizer.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
-        #     self.sub_encoder = AutoModel.from_pretrained("mrm8488/bert-mini-5-finetuned-squadv2")
-        # else:
-        #     self.sub_tokenizer = AutoTokenizer.from_pretrained(load + "/sub_tokenizer")
-        #     self.sub_encoder = AutoModel.from_pretrained(load + "/sub_encoder")
-        #     self.sub_head.load_state_dict(torch.load(load + "/sub_head.pt"))
-        
-    """ Should probably use a seperate model for choosing to submit """
-    # def subForward(self, x):
-    #     # x is list of states
-
-    #     toks = self.sub_tokenizer(x, [""]*len(x), padding=True, truncation=True, return_tensors='pt')
-    #     cls_enc = self.sub_encoder(toks["input_ids"], token_type_ids=toks["token_type_ids"], attention_mask=toks['attention_mask']).last_hidden_state[:,0]
-
-    #     preds = self.sub_head(cls_enc)
-
-    #     # only batch dimension
-    #     return preds[:,0]
+        # TODO: Seperate model for submission action?
 
 
     def forward(self, x):
-        # tuple of lists
+        """ Get scores for a set of states and action sentences.
+
+        Args:
+            x (_type_): (states, actions) tuple of lists, lists can be nested to keep track of batches
+
+        Returns:
+            _type_: If non-batched, 1d tensor of scores. If batched, list of 1d score tensors
+        """
 
         states, actions = x
 
+        # transformer can only handle single level lists
         vec_states = states
         vec_actions = actions
 
+        # check if lists are nested
         batched = isinstance(states[0], list)
+
+        # cat batches into one long list
         if batched:
             vec_states = []
             vec_actions = []
@@ -76,7 +79,10 @@ class Chooser(nn.Module):
                 vec_states += states[l]
                 vec_actions += actions[l]
 
+        assert len(vec_actions) == len(vec_states) # each action must correspond 1-to-1 to a state
+
         try:
+            # get output prediction from each state-action pair
             toks = self.tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
             out = self.encoder(
                     toks["input_ids"].to(self.encoder.device),
@@ -84,20 +90,27 @@ class Chooser(nn.Module):
                     attention_mask=toks['attention_mask'].to(self.encoder.device)
             ).pooler_output
 
+            # get 1d tensor
             preds = self.head(out)[:,0]
+
         except:
+            # sometimes it fails (input too long or invalid vocab?) so we just return zeros to avoid termination
             preds = torch.zeros([len(vec_states)], device=self.encoder.device, dtype=torch.float32, requires_grad=True)
 
-        start = 0
+        # if batched, we convert 1d tensor into list of corresponding batches
         if batched:
+            start = 0
             pred_list = []
             end = start
 
+            # segment pred into batches corresponding to original batch sizes
             for l in range(len(states)):
                 end = start + len(states[l])
                 pred_list.append(preds[start:end])
                 start = end
 
+            # return list of 1d tensors
             return pred_list
 
+        # return 1d tensor
         return preds
