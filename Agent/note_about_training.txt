@@ -20,3 +20,10 @@ searcher-p:
     - Used search_head = identity
     - Uses MaxPLoss over all inputs (no top_k)
     - Scaling/adding bias to the final result does not help
+
+chooser-cls:
+    - Trained on THE FIRST 20,000 ELEMENTS OF TRAINING DATA (validated on normal val set)
+    - bs=4, lr = 1e-6, AdamW
+    - Half-Cosine schedular: 80000 steps with 15000 warmup, killed after 40,000 steps
+    - frens = 1, noise_decay = 2, top_k = 10
+    - Used cls token embedding, head = [256->64], [dropout: p=0.1], [64->1]
