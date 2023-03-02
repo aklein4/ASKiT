@@ -18,7 +18,7 @@ This will be the model that asks questions. Given a current question and a set o
 
 ## Research
 
-Here [voidful/context-only-question-generator](https://huggingface.co/voidful/context-only-question-generator) is the model that we could start with for Asker. To train Asker, we could use [mrm8488/t5-base-finetuned-question-generation-ap](https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap) as an inverter that takes the missing context and answer for a given state, and generate a question form that. Then, Asker would be trained to predict that question given the state (the inverter 'bridges the gap' between the state and final answer). We then fine-tune Asker with PPO
+Here [voidful/context-only-question-generator](https://huggingface.co/voidful/context-only-question-generator) is a model that we could start with for Asker. To train Asker, we could use [mrm8488/t5-base-finetuned-question-generation-ap](https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap) or [ThomasSimonini/t5-end2end-question-generation](https://huggingface.co/ThomasSimonini/t5-end2end-question-generation) as an inverter that takes the missing context and answer for a given state, and generate a question form that. Then, Asker would be trained to predict that question given the state (the inverter 'bridges the gap' between the state and final answer). We then fine-tune Asker with PPO
 
 ## Notes
 
