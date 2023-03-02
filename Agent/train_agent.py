@@ -30,14 +30,16 @@ BATCH_SIZE = 8
 N_ACTIONS = 8
 
 SKIP = 2
-TRUNC = 20000
+
+TRAIN_TRUNC = 20000
+VAL_TRUNC = 2000
 
 MEM_THRESH = 0.85
 
 
 class ChooseDataset:
 
-    def __init__(self, file, n_choices, device=torch.device("cpu")):
+    def __init__(self, file, n_choices, device=torch.device("cpu"), trunc=1000000):
 
         self.device = device
         self.n_choices = n_choices
@@ -46,7 +48,7 @@ class ChooseDataset:
         self.data = None
         with open(file, 'r') as f:
             self.data = json.load(f)
-        self.data = self.data[:TRUNC]
+        self.data = self.data[:trunc]
         
         for p in self.data:
             p["raw_corpus"] = []
@@ -212,6 +214,12 @@ class AgentLogger(Logger):
         self.val_probs.append(val_metric[0])
         self.val_accs.append(val_metric[1])
         
+        # append metrics to csv file
+        with open(self.log_loc, 'a') as csvfile:
+            spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
+            spamwriter.writerow([len(self.train_accs)-1, self.train_probs[-1], self.val_probs[-1], self.train_accs[-1], self.val_accs[-1]])
+
+        
         # plot the metrics
         fig, ax = plt.subplots(2)
 
@@ -272,8 +280,8 @@ class PMetric:
 
 def main():
 
-    train_data = ChooseDataset(TRAIN_FILE, N_ACTIONS, device=torch.device("cuda"))
-    val_data = ChooseDataset(VAL_FILE, N_ACTIONS, device=torch.device("cuda"))
+    train_data = ChooseDataset(TRAIN_FILE, N_ACTIONS, device=torch.device("cuda"), trunc=TRAIN_TRUNC)
+    val_data = ChooseDataset(VAL_FILE, N_ACTIONS, device=torch.device("cuda"), trunc=VAL_TRUNC)
 
     model = Agent()
     model.to("cuda")
