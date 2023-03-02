@@ -112,6 +112,8 @@ class Environment:
 
     def evaluate(self):
         self.reset()
+        self.search.eval()
+        self.agent.eval()
 
         f1s = 0
         correct = 0
@@ -152,6 +154,9 @@ class Environment:
 
     def fillBuffer(self):
         
+        self.search.eval()
+        self.agent.eval()
+
         self.replay_buffer = []
 
         for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Exploring"):
