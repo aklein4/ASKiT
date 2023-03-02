@@ -208,16 +208,16 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 train_y.append(y)
 
                 # detach prediction
-                if isinstance(train_preds[-1], list):
+                if isinstance(train_preds[-1], list) or isinstance(train_preds[-1], tuple):
                     for k in range(len(train_preds[-1])):
-                        train_preds[-1][k] = train_preds[-1][k].detach()
+                        train_preds[-1][k].detach_()
                 else:
                     train_preds[-1] = train_preds[-1].detach()
 
                 # detach target
-                if isinstance(train_y[-1], list):
+                if isinstance(train_y[-1], list) or isinstance(train_y[-1], tuple):
                     for k in range(len(train_y[-1])):
-                        train_y[-1][k] = train_y[-1][k].detach()
+                        train_y[-1][k].detach_()
                 else:
                     train_y[-1] = train_y[-1].detach()
 

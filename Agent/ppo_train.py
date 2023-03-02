@@ -48,13 +48,15 @@ N_ACTIONS = 8
 CLIP_ALPHA = 0.1
 
 # only train of 1/skip of the data
-SKIP = 10
+SKIP = 300
 
 # start the training data at this index
 TRAIN_START = 20000
 
 # truncate the validation data to this many examples
-VAL_TRUNC = 2000
+VAL_TRUNC = 1500
+
+MAX_BUF = 10000
 
 
 class PPOLogger(Logger):
@@ -160,8 +162,10 @@ def PPOLoss(pred, target):
     old_policy, advantage = target
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape
-    
-    ratio = pred / old_policy
+
+    probs = torch.nn.softmax(pred, dim=-1)
+
+    ratio = probs / old_policy
     clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
     
     A_r = advantage * ratio
@@ -176,17 +180,14 @@ def PPOLoss(pred, target):
 def main():
 
     search = Searcher(load=SEARCH_CHECK)
-    search.to("cuda")
+    search = search.to("cuda")
 
     model = Agent(load=AGENT_CHECK)
-    model.to("cuda")
+    model = model.to("cuda")
 
     # load data
-    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), skip=SKIP, data_start=TRAIN_START)
-    val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), data_end=VAL_TRUNC)
-
-    # init agent
-    model = Agent()
+    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF)
+    val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), data_end=VAL_TRUNC, max_buf=1)
 
     # init loss function pointer
     loss_fn = PPOLoss
@@ -198,8 +199,8 @@ def main():
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=10000,
-        num_training_steps=100000,
+        num_warmup_steps=1000,
+        num_training_steps=40000,
     )
 
     # train indefinitely

@@ -18,11 +18,12 @@ MEM_THRESH = 0.85
 
 class Environment:
 
-    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000):
+    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000):
 
         self.top_k = top_k
         self.device = device
         self.skip = skip
+        self.max_buf = max_buf
 
         self.search = search
         self.agent = agent
@@ -62,16 +63,20 @@ class Environment:
         self.replay_buffer = []
 
         self.shuffler = []
+        self.item_shuffler = []
 
         self.reset()
 
 
     def reset(self):
         self.shuffler = list(range(self.size))
+        self.item_shuffler = list(range(len(self)))
 
     def shuffle(self):
         random.shuffle(self.shuffler)
         self.fillBuffer()
+        self.item_shuffler = list(range(len(self)))
+        random.shuffle(self.item_shuffler)
 
 
     def __len__(self):
@@ -91,7 +96,7 @@ class Environment:
             index, batchsize = getter
 
         # get the indices we are going to use
-        indices = self.shuffler[index:index+batchsize]
+        indices = self.item_shuffler[index:index+batchsize]
 
         x = ([], [], [])
         y = ([], [])
@@ -119,7 +124,7 @@ class Environment:
         correct = 0
         num_seen = 0
 
-        with tqdm(range(0, self.size, self.skip), leave=False, desc="Evaluating") as pbar:
+        with tqdm(range(0, self.size, 1+round(self.step/10)), leave=False, desc="Evaluating") as pbar:
             for i in pbar:
                 chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
                 
@@ -143,8 +148,8 @@ class Environment:
             if c in gold:
                 correct += 1
 
-        precision = correct / len(chosen)
-        recall = correct / len(gold)
+        precision = correct / max(len(chosen), 1)
+        recall = correct / max(1, len(gold))
 
         f1 = 0
         if precision + recall > 0:
@@ -162,7 +167,7 @@ class Environment:
         self.search.eval()
         self.agent.eval()
 
-        self.replay_buffer = []
+        self.replay_buffer = self.replay_buffer[:self.max_buf]
 
         for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Exploring"):
             q_ind = self.shuffler[i]
@@ -192,9 +197,8 @@ class Environment:
                 rewards = [self.getF1(q_ind, chosen)]
                 
                 for i in range(top_inds.shape[0]):
-                    action = top_inds[i].item()
 
-                    act_ind = top_inds[action].item()
+                    act_ind = top_inds[i].item()
 
                     temp_chosen = chosen + [avail_text[act_ind]]
                     temp_evidence = evidence + avail_text[act_ind]
@@ -212,6 +216,7 @@ class Environment:
                 """ Calculate the advantage and save the data """
 
                 policy = self.agent.forward(([question], [evidence], [action_set]))[0]     
+                policy = torch.nn.functional.softmax(policy, dim=-1)
 
                 V_s = torch.sum(policy * rewards).item()
                 advantage = rewards - V_s
@@ -263,6 +268,6 @@ class Environment:
                 chosen.append(avail_text[act_ind])
 
                 evidence += avail_text.pop(act_ind)
-                avail_corpse = torch.cat([avail_corpse[:act_ind], avail_corpse[act_ind+1:]])
+                avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])
 
         return chosen
