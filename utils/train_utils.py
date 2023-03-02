@@ -192,6 +192,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 # compute gradient and do SGD step
                 optimizer.zero_grad()
                 loss.backward()
+                
+                mem = get_mem_use()
+                
                 optimizer.step()
                 
                 if lr_scheduler is not None:
@@ -223,7 +226,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rolling_tot_loss += loss.item()
                 rollong_loss_num += 1
 
-                postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
+                postfix = {'epoch': epoch, 'step': step, 'mem_use': mem, 'loss': rolling_tot_loss / rollong_loss_num}
 
                 # get metric for postfix
                 if metric is not None:
@@ -262,6 +265,8 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                             
                             loss = loss_fn(pred, y)
                             
+                            mem = get_mem_use()
+                            
                             # save
                             val_preds.append(pred)
                             val_y.append(y)
@@ -279,18 +284,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                                     val_y[-1][k] = val_y[-1][k].detach()
                             else:
                                 val_y[-1] = val_y[-1].detach()
-                            
-                            # handle printing stuff
-                            rolling_tot_loss *= rolling_avg
-                            rollong_loss_num *= rolling_avg
 
                             rolling_tot_loss += loss.item()
                             rollong_loss_num += 1
 
-                            postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
+                            postfix = {'epoch': epoch, 'step': step, 'mem_use': mem, 'loss': rolling_tot_loss / rollong_loss_num}
 
                             if metric is not None:
-                                rolling_metric *= rolling_avg
                                 rolling_metric += metric(val_preds[-1], val_y[-1])
                                 postfix[metric.title] = rolling_metric / rollong_loss_num
 
@@ -299,9 +299,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 # other arg for logger
                 val_log = (val_preds, val_y)
             
-                # call logger
-                if logger is not None:
-                    logger.log(train_log, val_log)
+            # call logger
+            if logger is not None:
+                logger.log(train_log, val_log)
             
             
 
