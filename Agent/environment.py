@@ -117,14 +117,19 @@ class Environment:
 
         f1s = 0
         correct = 0
+        num_seen = 0
 
-        for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Evaluating"):
-            chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
-            
-            f1s += self.getF1(i, chosen)
-            correct += self.getCorrect(i, chosen)
+        with tqdm(range(0, self.size, self.skip), leave=False, desc="Evaluating") as pbar:
+            for i in pbar:
+                chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
+                
+                f1s += self.getF1(i, chosen)
+                correct += self.getCorrect(i, chosen)
+                num_seen += 1
 
-        return f1s / self.size, correct / self.size
+                pbar.set_postfix({'acc': correct/num_seen, 'f1': f1s/num_seen})
+
+        return f1s / num_seen, correct / num_seen
 
 
     def getF1(self, q_id, chosen):
