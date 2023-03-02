@@ -10,10 +10,10 @@ from sentence_transformers import SentenceTransformer
 ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
 
 # model to use to create latent search vectors
-# SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
-SEARCH_MODEL = "checkpoints/searcher-p"
-SEARCH_TOKEN_SUFFIX = "_tokenizer"
-
+SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1' # pretrained
+#SEARCH_MODEL = "checkpoints/searcher-p"
+#SEARCH_TOKEN_SUFFIX = "_tokenizer"
+SEARCH_TOKEN_SUFFIX = ""
 
 # Take average of all tokens, see pretrained model on huggingface
 def mean_pooling(model_output, attention_mask):
@@ -50,6 +50,19 @@ class Searcher(nn.Module):
             _type_: Matrix with dim_0 = sentences, dim_1 = encodings
         """
         return self.encoder(corpus, convert_to_tensor=True)
+
+
+    def varTest(self, sentence):
+
+        search_ins = self.search_tokenizer(sentence, padding=True, truncation=True, return_tensors='pt')
+        search_outs = self.search_encoder(**search_ins, return_dict=True).last_hidden_state[0]
+  
+        var_mat = torch.cov(search_outs.T)
+
+        print(torch.diag(var_mat).tolist())
+
+        return
+
 
 
     def forward(self, x):

@@ -16,7 +16,7 @@ def get_mem_use():
     for i in range(deviceCount):
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        use_perc = round(info.free / info.total, 2)
+        use_perc = round(1 - info.free / info.total, 2)
         max_use = max(max_use, use_perc)
     return max_use
 
@@ -192,6 +192,12 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 # compute gradient and do SGD step
                 optimizer.zero_grad()
                 loss.backward()
+                
+                mem = get_mem_use()
+                if mem >= 0.75:
+                    mem = (mem, "x")
+                    torch.cuda.empty_cache()
+    
                 optimizer.step()
                 
                 if lr_scheduler is not None:
@@ -223,7 +229,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rolling_tot_loss += loss.item()
                 rollong_loss_num += 1
 
-                postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
+                postfix = {'epoch': epoch, 'step': step, 'mem_use': mem, 'loss': rolling_tot_loss / rollong_loss_num}
 
                 # get metric for postfix
                 if metric is not None:
@@ -253,7 +259,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rollong_loss_num = 0
 
                 with torch.no_grad():
-                    with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
+                    with tqdm(range(0, len(val_data), batch_size), leave=False, desc="Validating") as pbar:
                         pbar.set_postfix({'epoch': epoch})
                         for b in pbar:
                             x, y = val_data[b, batch_size]
@@ -261,6 +267,8 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                             pred = model.forward(x)
                             
                             loss = loss_fn(pred, y)
+                            
+                            mem = get_mem_use()
                             
                             # save
                             val_preds.append(pred)
@@ -279,18 +287,13 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                                     val_y[-1][k] = val_y[-1][k].detach()
                             else:
                                 val_y[-1] = val_y[-1].detach()
-                            
-                            # handle printing stuff
-                            rolling_tot_loss *= rolling_avg
-                            rollong_loss_num *= rolling_avg
 
                             rolling_tot_loss += loss.item()
                             rollong_loss_num += 1
 
-                            postfix = {'epoch': epoch, 'step': step, 'mem_use': get_mem_use(), 'loss': rolling_tot_loss / rollong_loss_num}
+                            postfix = {'epoch': epoch, 'step': step, 'mem_use': mem, 'loss': rolling_tot_loss / rollong_loss_num}
 
                             if metric is not None:
-                                rolling_metric *= rolling_avg
                                 rolling_metric += metric(val_preds[-1], val_y[-1])
                                 postfix[metric.title] = rolling_metric / rollong_loss_num
 
@@ -299,9 +302,9 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 # other arg for logger
                 val_log = (val_preds, val_y)
             
-                # call logger
-                if logger is not None:
-                    logger.log(train_log, val_log)
+            # call logger
+            if logger is not None:
+                logger.log(train_log, val_log)
             
             
 
