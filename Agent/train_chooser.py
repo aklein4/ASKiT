@@ -18,6 +18,11 @@ sys.path.append("../utils")
 from train_utils import Logger, train, get_mem_use
 
 
+"""
+ ----- Chooser has been deprecated in favor of Agent! -----
+"""
+
+
 TRAIN_FILE = "../local_data/hotpot_data/train.json"
 TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 

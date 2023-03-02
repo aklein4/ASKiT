@@ -34,3 +34,7 @@ chooser-nat:
     - Half-Cosine schedular: 80000 steps with 15000 warmup, killed after 20,000 steps
     - frens = 1, noise_decay = 2, top_k = 10
     - Used pooled output, with single linear layer into scalar
+
+
+* This is a good question from Hotpot to use as an example:
+    - Which California university has more established relationships with Asian researchers, University of Southern California or Stanford University?

@@ -7,6 +7,11 @@ from transformers import AutoModel, AutoTokenizer
 
 
 """
+ ----- Chooser has been deprecated in favor of Agent! -----
+"""
+
+
+"""
 https://huggingface.co/mrm8488/bert-medium-finetuned-squadv2
 """
 PRETRAINED = "mrm8488/bert-mini-5-finetuned-squadv2"
