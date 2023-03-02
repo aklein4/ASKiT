@@ -10,6 +10,7 @@ import csv
 import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import numpy as np
 
 import sys
 sys.path.append("../utils")
@@ -28,10 +29,10 @@ BATCH_SIZE = 8
 
 N_ACTIONS = 8
 
-SKIP = 1
+SKIP = 2
 TRUNC = 20000
 
-MEM_THRESH = 0.8
+MEM_THRESH = 0.85
 
 
 class ChooseDataset:
@@ -91,7 +92,7 @@ class ChooseDataset:
 
     def reset(self):
 
-        self.shuffle = list(range(self.size))
+        self.shuffler = list(range(self.size))
 
         seed = random.randrange(0xFFFF)
         random.seed(0)
@@ -110,19 +111,19 @@ class ChooseDataset:
             
             evidence = ""
             
-            for e in range(p["evidence_raw_ids"]):
+            for e in p["evidence_raw_ids"]:
                 
                 curr_acts = [corpus[e]]
 
                 avail = corpus.copy()
                 avail.pop(e)
-                curr_acts += random.choices(avail, self.n_choices - 2)
+                curr_acts += random.choices(avail, k = self.n_choices - 2)
             
-                self.x.apppend((question, evidence, curr_acts))
+                self.x.append((question, evidence, curr_acts))
                 
                 evidence += curr_acts[0]
             
-            curr_acts = random.choices(corpus, self.n_choices - 1)
+            curr_acts = random.choices(corpus, k = self.n_choices - 1)
             self.x.append((question, evidence, curr_acts))
 
         assert len(self.x) == len(self.y)
@@ -135,7 +136,7 @@ class ChooseDataset:
     def __getitem__(self, getter):
         if get_mem_use() >= MEM_THRESH:
             torch.cuda.empty_cache()
-
+        
         index = getter
         batchsize = 1
         if isinstance(getter, tuple):
@@ -169,7 +170,7 @@ class AgentLogger(Logger):
         self.val_probs = []
 
         # this is the checkpoint metric
-        self.best_val_acc = 0
+        self.best_val_prob = 0
 
         self.p_fn = PMetric()
 
@@ -203,11 +204,13 @@ class AgentLogger(Logger):
         val_pred = torch.cat(val_pred, dim=0)
         val_y = torch.cat(val_y, dim=0)
 
-        self.train_probs.append(self.p_fn(train_pred, train_y))
-        self.val_probs.append(self.p_fn(val_pred, val_y))
+        train_metric = self.p_fn(train_pred, train_y, dtype=np.float32)
+        self.train_probs.append(train_metric[0])
+        self.train_accs.append(train_metric[1])
         
-        self.train_accs.append(torch.sum(torch.argmax(train_pred, dim=1) == torch.argmax(train_y, dim=1)) / train_pred.shape[0])
-        self.val_accs.append(torch.sum(torch.argmax(val_pred, dim=1) == torch.argmax(val_y, dim=1)) / val_pred.shape[0])
+        val_metric = self.p_fn(val_pred, val_y, dtype=np.float32)
+        self.val_probs.append(val_metric[0])
+        self.val_accs.append(val_metric[1])
         
         # plot the metrics
         fig, ax = plt.subplots(2)
@@ -227,8 +230,8 @@ class AgentLogger(Logger):
         plt.clf()
 
         # check metric for checkpoint saving
-        if self.best_val_acc < self.val_accs[-1]:
-            self.best_val_acc = self.val_accs[-1]
+        if self.best_val_prob < self.val_probs[-1] or True:
+            self.best_val_prob = self.val_probs[-1]
             self.save_checkpoint()
     
 
@@ -254,15 +257,17 @@ def PLoss(pred, target):
 
 class PMetric:
     def __init__(self):
-        self.title = 'p'
+        self.title = "p/acc"
     
-    def __call__(self, pred, target):
+    def __call__(self, pred, target, dtype=np.float16):
         assert pred.shape == target.shape
         
         probs = torch.nn.functional.softmax(pred, dim=-1)
-        chosen = probs[target == 1]
+        probs = probs[target == 1]
         
-        return torch.sum(chosen) / pred.shape[0]
+        acc = torch.sum(torch.argmax(pred, dim=1) == torch.argmax(target, dim=1)).item() / pred.shape[0]
+
+        return np.array([round(torch.sum(probs).item() / pred.shape[0], 3), round(acc, 3)]).astype(dtype)
 
 
 def main():
@@ -271,7 +276,7 @@ def main():
     val_data = ChooseDataset(VAL_FILE, N_ACTIONS, device=torch.device("cuda"))
 
     model = Agent()
-    model = model.cuda()
+    model.to("cuda")
 
     loss_fn = PLoss
 
@@ -281,8 +286,8 @@ def main():
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=10000,
-        num_training_steps=50000,
+        num_warmup_steps=15000,
+        num_training_steps=80000,
     )
 
     train(model, optimizer, train_data, loss_fn, val_data=val_data, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP, rolling_avg=0.99, metric=met)

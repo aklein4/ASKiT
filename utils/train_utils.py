@@ -16,7 +16,7 @@ def get_mem_use():
     for i in range(deviceCount):
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
         info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        use_perc = round(info.free / info.total, 2)
+        use_perc = round(1 - info.free / info.total, 2)
         max_use = max(max_use, use_perc)
     return max_use
 
@@ -194,7 +194,10 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 loss.backward()
                 
                 mem = get_mem_use()
-                
+                if mem >= 0.75:
+                    mem = (mem, "x")
+                    torch.cuda.empty_cache()
+    
                 optimizer.step()
                 
                 if lr_scheduler is not None:
@@ -256,7 +259,7 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 rollong_loss_num = 0
 
                 with torch.no_grad():
-                    with tqdm(range(0, len(val_data), batch_size*skip), leave=False, desc="Validating") as pbar:
+                    with tqdm(range(0, len(val_data), batch_size), leave=False, desc="Validating") as pbar:
                         pbar.set_postfix({'epoch': epoch})
                         for b in pbar:
                             x, y = val_data[b, batch_size]

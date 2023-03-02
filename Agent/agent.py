@@ -40,9 +40,11 @@ class Agent(nn.Module):
         questions, evidence = x
         assert len(questions) == len(evidence)
         
-        toks = self.sub_tokenizer(questions, evidence, return_tensors="pt")
+        toks = self.sub_tokenizer(questions, evidence, padding=True, return_tensors="pt")
         out = self.sub_encoder(
-            **toks
+            toks["input_ids"].to(self.sub_encoder.device),
+            # token_type_ids = toks["token_type_ids"].to(self.sub_encoder.device),
+            attention_mask = toks["attention_mask"].to(self.sub_encoder.device)
         )
         
         preds = -(out.start_logits[:,0] + out.start_logits[:,1]) / 2
@@ -70,14 +72,26 @@ class Agent(nn.Module):
             vec_actions += actions[l]
 
         # get output prediction from each state-action pair
-        toks = self.act_tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
-        preds = self.act_encoder(
-                **toks,
-        ).seq_relationship_logits[:1]
+        try:
+            toks = self.act_tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
+            preds = self.act_encoder(
+                toks["input_ids"].to(self.act_encoder.device),
+                token_type_ids = toks["token_type_ids"].to(self.act_encoder.device),
+                attention_mask = toks["attention_mask"].to(self.act_encoder.device)
+                ).seq_relationship_logits[:,1]
 
-        preds = torch.reshape(preds, (len(states), n_actions))
+            preds = torch.reshape(preds, (len(states), n_actions))
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            preds = torch.zeros((len(states), n_actions), device=self.act_encoder.device, dtype=torch.float32, requires_grad=True)
 
-        sub_ratings = self.rateSub((questions, evidence))
+        try:
+            sub_ratings = self.rateSub((questions, evidence))
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            sub_ratings = torch.zeros((len(states), 1), device=self.sub_encoder.device, dtype=torch.float32, requires_grad=True)
 
         preds = torch.cat([sub_ratings, preds], dim=1)
 
