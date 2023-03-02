@@ -6,16 +6,22 @@ This will be the model that asks questions. Given a current question and a set o
 
 ## TODO
 
- - [ ] Find a pretrained model (next word prediction?)
- - [ ] Pretrain on inversion: given the current state, try and predict the original question
- - [ ] Fine-tune using non-differentiable optimization (policy evaluation or monte-carlo performance)
- - [ ] Pretrain within the RL framework
+ - [ ] Get example sub-questions for pretraining
+     - [x] Find a pretrained context+answer -> question model for Inverter
+     - [ ] Fine-tune inverter on Hotpot?
+     - [ ] Generate questions for missing context + correct answer for each possible state
+ - [ ] Train Asker to generate questions given the state
+     - [x] Find a pretrained model
+     - [ ] Train to predict inverter-generated questions given the state
+ - [ ] Fine-tune Asker using PPO
+     - [ ] Want to maximize the final reward when we use the answer to the subquestion as evidence
 
 ## Research
 
-TBD
+Here [voidful/context-only-question-generator](https://huggingface.co/voidful/context-only-question-generator) is the model that we could start with for Asker. To train Asker, we could use [mrm8488/t5-base-finetuned-question-generation-ap](https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap) as an inverter that takes the missing context and answer for a given state, and generate a question form that. Then, Asker would be trained to predict that question given the state (the inverter 'bridges the gap' between the state and final answer). We then fine-tune Asker with PPO
 
 ## Notes
 
  - Might also need some regulation during finetuning, such as an adverserial network, to make sure that the questions being asked are 'human like'
  - We need to make sure that this is actually 'asking' questions, rather than giving learned answers disguised as questions
+ - Can we somehow incorporate Searcher's encoding when generating questions?
