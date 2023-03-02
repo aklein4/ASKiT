@@ -78,7 +78,7 @@ class Agent(nn.Module):
                 toks["input_ids"].to(self.act_encoder.device),
                 token_type_ids = toks["token_type_ids"].to(self.act_encoder.device),
                 attention_mask = toks["attention_mask"].to(self.act_encoder.device)
-                ).seq_relationship_logits[:,1]
+                ).seq_relationship_logits[:,0]
 
             preds = torch.reshape(preds, (len(states), n_actions))
         except KeyboardInterrupt:
