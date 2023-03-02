@@ -123,16 +123,17 @@ class Environment:
         f1s = 0
         correct = 0
         num_seen = 0
+        
+        with torch.no_grad():
+            with tqdm(range(0, self.size, 1+round(self.step/10)), leave=False, desc="Evaluating") as pbar:
+                for i in pbar:
+                    chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
+                    
+                    f1s += self.getF1(i, chosen)
+                    correct += self.getCorrect(i, chosen)
+                    num_seen += 1
 
-        with tqdm(range(0, self.size, 1+round(self.step/10)), leave=False, desc="Evaluating") as pbar:
-            for i in pbar:
-                chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
-                
-                f1s += self.getF1(i, chosen)
-                correct += self.getCorrect(i, chosen)
-                num_seen += 1
-
-                pbar.set_postfix({'acc': correct/num_seen, 'f1': f1s/num_seen})
+                    pbar.set_postfix({'acc': correct/num_seen, 'f1': f1s/num_seen})
 
         return f1s / num_seen, correct / num_seen
 
@@ -169,63 +170,97 @@ class Environment:
 
         self.replay_buffer = self.replay_buffer[:self.max_buf]
 
-        for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Exploring"):
-            q_ind = self.shuffler[i]
-            p = self.data[q_ind]
+        with torch.no_grad():
+            for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Exploring"):
+                q_ind = self.shuffler[i]
+                p = self.data[q_ind]
 
-            question = p["question"]
-            evidence = ""
+                question = p["question"]
+                evidence = ""
 
-            avail_text = p["raw_corpus"].copy()
-            avail_encodings = self.corpus[q_ind].float()
+                avail_text = p["raw_corpus"].copy()
+                avail_encodings = self.corpus[q_ind].float()
 
-            chosen = []
+                chosen = []
 
-            while True:
-            
-                """ Get the available actions """
-
-                scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
-                _, top_inds = torch.topk(scores, self.top_k)
-
-                action_set = []
-                for i in range(top_inds.shape[0]):
-                    action_set += [avail_text[top_inds[i]]]
-
-                """ Get the rewards for each action """
-
-                rewards = [self.getF1(q_ind, chosen)]
+                while True:
                 
+                    """ Get the available actions """
+
+                    scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
+                    _, top_inds = torch.topk(scores, min(scores.numel(), self.top_k))
+
+                    action_set = []
+                    for i in range(top_inds.shape[0]):
+                        action_set += [avail_text[top_inds[i]]]
+
+                    """ Get the rewards for each action """
+
+                    rewards = [self.getF1(q_ind, chosen)]
+                    
+                    for i in range(top_inds.shape[0]):
+
+                        act_ind = top_inds[i].item()
+
+                        temp_chosen = chosen + [avail_text[act_ind]]
+                        temp_evidence = evidence + avail_text[act_ind]
+
+                        temp_avail_text = avail_text.copy()
+                        temp_avail_text.pop(act_ind)
+
+                        temp_avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])   
+
+                        r = self.getF1(q_ind, temp_chosen + self.greedyRollout(q_ind, temp_evidence, temp_avail_text, temp_avail_encodings))
+                        rewards.append(r)
+
+                    rewards = torch.tensor(rewards).to(self.device).float()
+
+                    """ Calculate the advantage and save the data """
+
+                    policy = self.agent.forward(([question], [evidence], [action_set]))[0]     
+                    policy = torch.nn.functional.softmax(policy, dim=-1)
+
+                    V_s = torch.sum(policy * rewards).item()
+                    advantage = rewards - V_s
+
+                    self.replay_buffer.append((question, evidence, action_set, policy.detach(), advantage.detach()))
+
+                    """ Sample a random trajectory """
+
+                    action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+
+                    if action == 0 or len(chosen) == MAX_DEPTH:
+                        break
+
+                    else:
+                        act_ind = top_inds[action-1].item()
+
+                        chosen.append(avail_text[act_ind])
+
+                        evidence += avail_text.pop(act_ind)
+                        avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])
+
+
+    def greedyRollout(self, question_id, evidence, avail_text, avail_encodings):
+
+        p = question = self.data[question_id]["question"]
+
+        avail_text = avail_text.copy()
+        chosen = []
+
+        with torch.no_grad():
+            while True:
+                
+                scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
+                _, top_inds = torch.topk(scores, min(scores.numel(), self.top_k))
+
+                eval_actions = []
                 for i in range(top_inds.shape[0]):
+                    eval_actions += [avail_text[top_inds[i]]]
 
-                    act_ind = top_inds[i].item()
+                policy = self.agent.forward(([question], [evidence], [eval_actions]))[0]
 
-                    temp_chosen = chosen + [avail_text[act_ind]]
-                    temp_evidence = evidence + avail_text[act_ind]
-
-                    temp_avail_text = avail_text.copy()
-                    temp_avail_text.pop(act_ind)
-
-                    temp_avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])   
-
-                    r = self.getF1(q_ind, temp_chosen + self.greedyRollout(q_ind, temp_evidence, temp_avail_text, temp_avail_encodings))
-                    rewards.append(r)
-
-                rewards = torch.tensor(rewards).to(self.device).float()
-
-                """ Calculate the advantage and save the data """
-
-                policy = self.agent.forward(([question], [evidence], [action_set]))[0]     
-                policy = torch.nn.functional.softmax(policy, dim=-1)
-
-                V_s = torch.sum(policy * rewards).item()
-                advantage = rewards - V_s
-
-                self.replay_buffer.append((question, evidence, action_set, policy.detach(), advantage.detach()))
-
-                """ Sample a random trajectory """
-
-                action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+                action = torch.argmax(policy).item()
 
                 if action == 0 or len(chosen) == MAX_DEPTH:
                     break
@@ -237,37 +272,5 @@ class Environment:
 
                     evidence += avail_text.pop(act_ind)
                     avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])
-
-
-    def greedyRollout(self, question_id, evidence, avail_text, avail_encodings):
-
-        p = question = self.data[question_id]["question"]
-
-        avail_text = avail_text.copy()
-        chosen = []
-
-        while True:
-            
-            scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
-            _, top_inds = torch.topk(scores, self.top_k)
-
-            eval_actions = []
-            for i in range(top_inds.shape[0]):
-                eval_actions += [avail_text[top_inds[i]]]
-
-            policy = self.agent.forward(([question], [evidence], [eval_actions]))[0]
-
-            action = torch.argmax(policy).item()
-
-            if action == 0 or len(chosen) == MAX_DEPTH:
-                break
-
-            else:
-                act_ind = top_inds[action-1].item()
-
-                chosen.append(avail_text[act_ind])
-
-                evidence += avail_text.pop(act_ind)
-                avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])
 
         return chosen
