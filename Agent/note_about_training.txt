@@ -35,6 +35,8 @@ chooser-nat:
     - frens = 1, noise_decay = 2, top_k = 10
     - Used pooled output, with single linear layer into scalar
 
+agent:
+    - train_acc: 0.325, train_f1: 0.669 on first 20000/skip
 
 * This is a good question from Hotpot to use as an example:
     - Which California university has more established relationships with Asian researchers, University of Southern California or Stanford University?
