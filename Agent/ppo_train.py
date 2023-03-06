@@ -17,7 +17,7 @@ sys.path.append("../utils")
 from train_utils import Logger, train, get_mem_use
 
 
-AGENT_CHECK = "./checkpoints/agent_0"
+AGENT_CHECK = "./checkpoints/agent_3"
 SEARCH_CHECK = "./checkpoints/searcher-p"
 
 
@@ -45,7 +45,7 @@ BATCH_SIZE = 8
 # number of actions to choose from, including submit
 N_ACTIONS = 8
 
-CLIP_ALPHA = 0.1
+CLIP_ALPHA = 0.2
 
 # only train of 1/skip of the data
 SKIP = 300
@@ -54,8 +54,9 @@ SKIP = 300
 TRAIN_START = 20000
 
 # truncate the validation data to this many examples
-VAL_TRUNC = 1500
+VAL_TRUNC = 1000
 
+MIN_BUF = 1000
 MAX_BUF = 10000
 
 
@@ -117,7 +118,7 @@ class PPOLogger(Logger):
         # append metrics to csv file
         with open(self.log_loc, 'a') as csvfile:
             spamwriter = csv.writer(csvfile, delimiter=',', lineterminator='\n')
-            spamwriter.writerow([len(self.train_accs)-1, self.train_accs[-1], self.val_accs[-1], self.train_f1s[-1], self.val_f1s[-1]])
+            spamwriter.writerow([len(self.train_accs)-2, self.train_accs[-1], self.val_accs[-1], self.train_f1s[-1], self.val_f1s[-1]])
 
         # plot the metrics
         fig, ax = plt.subplots(2)
@@ -146,7 +147,7 @@ class PPOLogger(Logger):
         # save the model to a new folder
 
         # create folder
-        folder = CHECKPOINT + "_{}".format(len(self.val_accs)-1)
+        folder = CHECKPOINT + "_{}".format(len(self.val_accs)-2)
         os.makedirs(folder, exist_ok=True)
 
         # save act_model
@@ -163,7 +164,7 @@ def PPOLoss(pred, target):
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape
 
-    probs = torch.nn.softmax(pred, dim=-1)
+    probs = torch.nn.functional.softmax(pred, dim=-1)
 
     ratio = probs / old_policy
     clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
@@ -186,7 +187,7 @@ def main():
     model = model.to("cuda")
 
     # load data
-    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF)
+    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF)
     val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), data_end=VAL_TRUNC, max_buf=1)
 
     # init loss function pointer
@@ -194,6 +195,8 @@ def main():
 
     # init our stuff
     logger = PPOLogger(train_env, val_env, log_loc=LOG, graff=GRAFF)
+    logger.initialize(model)
+    logger.log(None, None)
 
     # init torch stuff
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
@@ -204,7 +207,7 @@ def main():
     )
 
     # train indefinitely
-    train(model, optimizer, train_env, loss_fn, val_data=None, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=SKIP, rolling_avg=0.99)
+    train(model, optimizer, train_env, loss_fn, val_data=None, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=1, rolling_avg=0.99)
 
 
 if __name__== '__main__':

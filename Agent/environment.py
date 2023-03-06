@@ -11,19 +11,20 @@ from train_utils import get_mem_use
 from tqdm import tqdm
 
 
-MAX_DEPTH = 5
+MAX_DEPTH = 10
 
 MEM_THRESH = 0.85
 
 
 class Environment:
 
-    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000):
+    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100):
 
         self.top_k = top_k
         self.device = device
         self.skip = skip
         self.max_buf = max_buf
+        self.min_buf = min_buf
 
         self.search = search
         self.agent = agent
@@ -125,7 +126,7 @@ class Environment:
         num_seen = 0
         
         with torch.no_grad():
-            with tqdm(range(0, self.size, 1+round(self.step/10)), leave=False, desc="Evaluating") as pbar:
+            with tqdm(range(0, self.size, 1+round(self.skip/5)), leave=False, desc="Evaluating") as pbar:
                 for i in pbar:
                     chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
                     
@@ -142,7 +143,9 @@ class Environment:
 
         p = self.data[q_id]
 
-        gold = p["raw_corpus"]
+        gold = p["evidence_raw_ids"].copy()
+        for i in range(len(gold)):
+            gold[i] = p["raw_corpus"][gold[i]]
 
         correct = 0
         for c in chosen:
@@ -171,7 +174,11 @@ class Environment:
         self.replay_buffer = self.replay_buffer[:self.max_buf]
 
         with torch.no_grad():
-            for i in tqdm(range(0, self.size, self.skip), leave=False, desc="Exploring"):
+            ran = range(0, self.size, self.skip)
+            if len(self.replay_buffer) == 0:
+                ran = range(self.min_buf)
+            
+            for i in tqdm(ran, leave=False, desc="Exploring"):
                 q_ind = self.shuffler[i]
                 p = self.data[q_ind]
 
@@ -243,7 +250,7 @@ class Environment:
 
     def greedyRollout(self, question_id, evidence, avail_text, avail_encodings):
 
-        p = question = self.data[question_id]["question"]
+        question = self.data[question_id]["question"]
 
         avail_text = avail_text.copy()
         chosen = []
@@ -266,9 +273,18 @@ class Environment:
                     break
 
                 else:
-                    act_ind = top_inds[action-1].item()
-
-                    chosen.append(avail_text[act_ind])
+                    try:
+                        # IndexError: index 1691447282 is out of bounds for dimension 0 with size 7 - After a few hundred iterations
+                        # like what the fuck? that's not even a number that should come out of an underflow, and why only that one time?
+                        act_ind = top_inds[action-1].item()
+                    except:
+                        act_ind = top_inds[0].item()
+                    
+                    try:
+                        chosen.append(avail_text[act_ind])
+                    except:
+                        act_ind = 0
+                        chosen.append(avail_text[act_ind])
 
                     evidence += avail_text.pop(act_ind)
                     avail_encodings = torch.cat([avail_encodings[:act_ind], avail_encodings[act_ind+1:]])

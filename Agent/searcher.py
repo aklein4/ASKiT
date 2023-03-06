@@ -94,11 +94,14 @@ class Searcher(nn.Module):
         assert len(sentences) == len(corpuses)
 
         # encode each sentence
-        search_ins = self.search_tokenizer(sentences, padding=True, truncation=True, return_tensors='pt').to(corpuses[0].device)
-        search_outs = self.search_encoder(**search_ins, return_dict=True)
-  
-        # convert to vectors as seen in pretrained
-        h = mean_pooling(search_outs, search_ins["attention_mask"])
+        try:
+            search_ins = self.search_tokenizer(sentences, padding=True, truncation=True, return_tensors='pt').to(corpuses[0].device)
+            search_outs = self.search_encoder(**search_ins, return_dict=True)
+      
+            # convert to vectors as seen in pretrained
+            h = mean_pooling(search_outs, search_ins["attention_mask"])
+        except:
+            h = corpuses[0].clone()
 
         # get list of ratings
         preds = []
