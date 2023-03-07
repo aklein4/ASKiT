@@ -37,17 +37,6 @@ class Environment:
         # reduce data size
         self.data = self.data[data_start:data_end]
 
-        # how big is it?
-        self.size = len(self.data)
-
-        # generate the raw corpus for each question
-        for p in self.data:
-            p["raw_corpus"] = []
-            for c in range(len(p["corpus"])):
-                title = " "+ p["corpus_titles"][c] + ", "
-                for s in p["corpus"][c]:
-                    p["raw_corpus"].append(title + s)
-
         # load all of the embeddings
         self.corpus = torch.load(corpus_encodings)
         for i in range(len(self.corpus)):
@@ -56,6 +45,29 @@ class Environment:
 
         # reduce corpus size
         self.corpus = self.corpus[data_start:data_end]
+
+        # some of the data doesn't have big enough corpuses, so we remove it
+        temp_data = []
+        temp_corpus = []
+        for i in range(len(self.corpus)):
+            if self.corpus[i].shape[0] < 2*self.top_k:
+                continue
+            else:
+                temp_data.append(self.data[i])
+                temp_corpus.append(self.corpus[i])
+        self.data = temp_data
+        self.corpus = temp_corpus
+        
+        # generate the raw corpus for each question
+        for p in self.data:
+            p["raw_corpus"] = []
+            for c in range(len(p["corpus"])):
+                title = " "+ p["corpus_titles"][c] + ", "
+                for s in p["corpus"][c]:
+                    p["raw_corpus"].append(title + s)
+
+        # how big is it now?
+        self.size = len(self.data)
 
         # check that things match up
         assert len(self.corpus) == self.size
@@ -140,7 +152,8 @@ class Environment:
         num_seen = 0
         
         with torch.no_grad():
-            with tqdm(range(0, self.size, 1+round(self.skip/5)), leave=False, desc="Evaluating") as pbar:
+            # iterate through every question, testing 5 times more that we grab at every buffer fill
+            with tqdm(range(0, self.size, 1+self.skip//5), leave=False, desc="Evaluating") as pbar:
                 
                 # iterate through every question
                 for i in pbar:
@@ -209,8 +222,14 @@ class Environment:
             if len(self.replay_buffer) == 0:
                 ran = range(self.min_buf)
             
+            # for printing purposes
+            total_f1 = 0
+            total_acc = 0
+            num_seen = 0
+            
             # iterate through the questions in ran
-            for shuffle_index in tqdm(ran, leave=False, desc="Exploring"):
+            pbar = tqdm(ran, leave=False, desc="Exploring")
+            for shuffle_index in pbar:
                 
                 # use shuffler to get the question
                 q_ind = self.shuffler[shuffle_index]
@@ -282,8 +301,8 @@ class Environment:
 
                     """ Calculate the advantage and save the data """
 
-                    # get the policy probabilities for the current state
-                    policy = self.agent.forward(([question], [evidence], [action_set]))[0]     
+                    # get the policy probabilities for the current state   (remove None from first element of action_set)
+                    policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]     
                     policy = torch.nn.functional.softmax(policy, dim=-1)
 
                     # use rewards and probs to get expected value
@@ -293,7 +312,7 @@ class Environment:
                     advantage = rewards - V_s
 
                     # save (q, e, A, p, Adv) tuple to buffer
-                    self.replay_buffer.append((question, evidence, action_set.copy(), policy.detach(), advantage.detach()))
+                    self.replay_buffer.append((question, evidence, action_set[1:].copy(), policy.detach(), advantage.detach()))
 
                     """ Sample a random trajectory """
 
@@ -302,6 +321,12 @@ class Environment:
 
                     # stop if we submit, reach max depth, or run out of evidence needed for full stack
                     if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k:
+                        
+                        num_seen += 1
+                        total_f1 += self.getF1(q_ind, chosen)
+                        total_acc += self.getCorrect(q_ind, chosen)
+                        pbar.set_postfix({"f1": total_f1/num_seen, "acc": total_acc/num_seen})
+                        
                         break
 
                     # continue sampling rollout
@@ -316,6 +341,9 @@ class Environment:
                         avail_text.pop(action_inds[action])    
                         avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
                         assert len(avail_text) == avail_encodings.shape[0]
+
+            # close the progress bar
+            pbar.close()
 
         # keep the buffer its max size, by removing the oldest tuples
         self.replay_buffer = self.replay_buffer[-self.max_buf:]
@@ -350,7 +378,7 @@ class Environment:
                     action_set += [avail_text[top_inds[i]]]
 
                 # use the agent to get the policy scores
-                policy = self.agent.forward(([question], [evidence], [action_set]))[0]
+                policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
 
                 # choose action greedily
                 action = torch.argmax(policy).item()

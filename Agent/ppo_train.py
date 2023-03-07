@@ -56,8 +56,12 @@ TRAIN_START = 20000
 # truncate the validation data to this many examples
 VAL_TRUNC = 1000
 
+# define buffer sizes
 MIN_BUF = 1000
 MAX_BUF = 10000
+
+# reduce data size for debugging
+TRAIN_SKIP = 1
 
 
 class PPOLogger(Logger):
@@ -107,10 +111,12 @@ class PPOLogger(Logger):
             val_log (tuple): (val_pred, val_y) lists of tensors
         """
 
+        # get metrics greedy rollout metrics from the training set
         train_f1, train_acc = self.train_env.evaluate()
         self.train_f1s.append(train_f1)
         self.train_accs.append(train_acc)
 
+        # get greedy rollout metrics from the validation set
         val_f1, val_acc = self.val_env.evaluate()
         self.val_f1s.append(val_f1)
         self.val_accs.append(val_acc)
@@ -160,6 +166,7 @@ class PPOLogger(Logger):
 
 
 def PPOLoss(pred, target):
+    # calculate the PPO loss
     old_policy, advantage = target
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape
@@ -180,9 +187,11 @@ def PPOLoss(pred, target):
 
 def main():
 
+    # load semantic search model
     search = Searcher(load=SEARCH_CHECK)
     search = search.to("cuda")
 
+    # load agent model
     model = Agent(load=AGENT_CHECK)
     model = model.to("cuda")
 
@@ -207,7 +216,7 @@ def main():
     )
 
     # train indefinitely
-    train(model, optimizer, train_env, loss_fn, val_data=None, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=1, rolling_avg=0.99)
+    train(model, optimizer, train_env, loss_fn, val_data=None, batch_size=BATCH_SIZE, logger=logger, lr_scheduler=lr_scheduler, skip=TRAIN_SKIP, rolling_avg=0.99)
 
 
 if __name__== '__main__':
