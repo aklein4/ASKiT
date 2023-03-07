@@ -6,19 +6,25 @@ import os
 
 # nvidia-ml-py3
 import nvidia_smi
-nvidia_smi.nvmlInit()
+try:
+    nvidia_smi.nvmlInit()
+except:
+    pass
 
 
 def get_mem_use():
     # get the percentage of vram that is being used
-    max_use = 0
-    deviceCount = nvidia_smi.nvmlDeviceGetCount()
-    for i in range(deviceCount):
-        handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
-        info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-        use_perc = round(1 - info.free / info.total, 2)
-        max_use = max(max_use, use_perc)
-    return max_use
+    try:
+        max_use = 0
+        deviceCount = nvidia_smi.nvmlDeviceGetCount()
+        for i in range(deviceCount):
+            handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
+            info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+            use_perc = round(1 - info.free / info.total, 2)
+            max_use = max(max_use, use_perc)
+        return max_use
+    except:
+        return 0
 
 
 class TensorDataset:

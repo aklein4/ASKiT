@@ -17,7 +17,7 @@ sys.path.append("../utils")
 from train_utils import Logger, train, get_mem_use
 
 
-AGENT_CHECK = "./checkpoints/agent_3"
+AGENT_CHECK = "./checkpoints/agent-pre"
 SEARCH_CHECK = "./checkpoints/searcher-p"
 
 
