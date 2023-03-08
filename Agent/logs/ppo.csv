@@ -1,1 +1,2 @@
-epoch,train_acc,val_acc,train_f1,val_f1
+epoch,train_acc,val_acc,train_f1,val_f1
+-1,0.3136729222520107,0.3166332665330661,0.6647510368690002,0.6652704120639998

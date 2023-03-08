@@ -17,6 +17,7 @@ sys.path.append("../utils")
 from train_utils import Logger, train, get_mem_use
 
 
+# checkpoint locations to load pretrained models
 AGENT_CHECK = "./checkpoints/agent-pre"
 SEARCH_CHECK = "./checkpoints/searcher-p"
 
@@ -45,22 +46,24 @@ BATCH_SIZE = 8
 # number of actions to choose from, including submit
 N_ACTIONS = 8
 
+# clip hyperparameter for PPO Loss
 CLIP_ALPHA = 0.2
 
-# only train of 1/skip of the data
+# evey epoch, add 1/SKIP episodes to the replay buffer
 SKIP = 300
 
-# start the training data at this index
+# start the training data at this index (we pretrained on the first 20000 elements)
 TRAIN_START = 20000
 
 # truncate the validation data to this many examples
-VAL_TRUNC = 1000
+VAL_TRUNC = 500
 
-# define buffer sizes
+# before the first epoch, fill the replay buffer with this many examples
 MIN_BUF = 1000
+# discard the oldest examples once the replay buffer eaches this size
 MAX_BUF = 10000
 
-# reduce data size for debugging
+# reduce training epoch size for debugging
 TRAIN_SKIP = 1
 
 
@@ -166,19 +169,31 @@ class PPOLogger(Logger):
 
 
 def PPOLoss(pred, target):
-    # calculate the PPO loss
+    """
+    Calculate the loss according to Proximal Policy Optimization (PPO)
+    """
+
+    # old_policy are probabilities from when data was originally collected,
+    # advantage is how good an action is relative to expectation
     old_policy, advantage = target
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape
 
+    # model output is logits -> convert to probabilities
     probs = torch.nn.functional.softmax(pred, dim=-1)
 
+    # we use the old policy to regularize the current one
     ratio = probs / old_policy
+
+    # clip to avoid the policy from making too big a change at once
     clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
     
+    # we want higher advantage choices to have higher ratio
     A_r = advantage * ratio
     A_clipped = advantage * clipped_ratio
 
+    # this handles high/low clip vs. +/- advantage
+    # (just think about the cases)
     minned = torch.minimum(A_r, A_clipped)
 
     # return average, negative to minimize

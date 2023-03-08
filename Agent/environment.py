@@ -15,6 +15,8 @@ MAX_DEPTH = 10
 
 MEM_THRESH = 0.85
 
+REPLAY_SAVE =  "./checkpoints/replay_buffer.pt"
+
 
 class Environment:
 
@@ -152,8 +154,8 @@ class Environment:
         num_seen = 0
         
         with torch.no_grad():
-            # iterate through every question, testing 5 times more that we grab at every buffer fill
-            with tqdm(range(0, self.size, 1+self.skip//5), leave=False, desc="Evaluating") as pbar:
+            # iterate through every question, testing 2 times more that we grab at every buffer fill
+            with tqdm(range(0, self.size, 1+self.skip//2), leave=False, desc="Evaluating") as pbar:
                 
                 # iterate through every question
                 for i in pbar:
@@ -249,6 +251,8 @@ class Environment:
                 # evidence that has been chosen during rollout
                 chosen = []
 
+                assert len(avail_text) == avail_encodings.shape[0]
+
                 # go until we either stop or run out of evidence
                 while True:
                 
@@ -340,6 +344,7 @@ class Environment:
                         # remove the chosen action from the available evidence
                         avail_text.pop(action_inds[action])    
                         avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+                        
                         assert len(avail_text) == avail_encodings.shape[0]
 
             # close the progress bar
@@ -347,6 +352,9 @@ class Environment:
 
         # keep the buffer its max size, by removing the oldest tuples
         self.replay_buffer = self.replay_buffer[-self.max_buf:]
+
+        # save the replay buffer to quickly restart training later
+        torch.save(self.replay_buffer, REPLAY_SAVE)
 
 
     def greedyRollout(self, question_id, evidence, avail_text, avail_encodings, start_depth=0):
@@ -380,8 +388,13 @@ class Environment:
                 # use the agent to get the policy scores
                 policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
 
+                assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
+
                 # choose action greedily
                 action = torch.argmax(policy).item()
+                if action not in list(range(len(action_set))):
+                    print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
+                    action = 0
 
                 # stop if we submit, reach max depth, or run out of evidence needed for full stack
                 if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k:
@@ -399,6 +412,11 @@ class Environment:
                     avail_text.pop(action_inds[action])    
                     avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
                     assert len(avail_text) == avail_encodings.shape[0]
+
+        
+        # clear cache if memory is getting full
+        if get_mem_use() >= MEM_THRESH:
+            torch.cuda.empty_cache()
 
         # return the chosen evidence that was chosen during this rollout
         return chosen
