@@ -66,7 +66,7 @@ class Agent(nn.Module):
         assert len(questions) == len(evidence)
         
         # get output prediction from each question-evidence pair
-        toks = self.sub_tokenizer(questions, evidence, padding=True, return_tensors="pt")
+        toks = self.sub_tokenizer(questions, evidence, padding=True, return_tensors="pt", truncation=True, max_length=512)
         out = self.sub_encoder(
             toks["input_ids"].to(self.sub_encoder.device),
             # token_type_ids = toks["token_type_ids"].to(self.sub_encoder.device),
@@ -79,7 +79,7 @@ class Agent(nn.Module):
         return preds.unsqueeze(1)
 
 
-    def forward(self, x):
+    def forward(self, x, debug=False):
         """ Given a question, evidence, and list of actions, return a policy rating of each action.
 
         Args:
@@ -110,35 +110,21 @@ class Agent(nn.Module):
             vec_actions += actions[l]
 
         # get output prediction from each state-action pair
-        try:
-            toks = self.act_tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt')
-            preds = self.act_encoder(
-                toks["input_ids"].to(self.act_encoder.device),
-                token_type_ids = toks["token_type_ids"].to(self.act_encoder.device),
-                attention_mask = toks["attention_mask"].to(self.act_encoder.device)
-                ).seq_relationship_logits[:,0]
+        toks = self.act_tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt', truncation=True, max_length=512)
+        preds = self.act_encoder(
+            toks["input_ids"].to(self.act_encoder.device),
+            token_type_ids = toks["token_type_ids"].to(self.act_encoder.device),
+            attention_mask = toks["attention_mask"].to(self.act_encoder.device)
+            ).seq_relationship_logits[:,0]
 
-            # reshape to [num_questions, num_actions] batches
-            preds = torch.reshape(preds, (len(states), n_actions))
-        
-        # sometimes the model fails to predict, so just return 0s
-        except KeyboardInterrupt:
-            exit(0)
-        except:
-            preds = torch.zeros((len(states), n_actions), device=self.act_encoder.device, dtype=torch.float32, requires_grad=True)
+        # reshape to [num_questions, num_actions] batches
+        preds = torch.reshape(preds, (len(states), n_actions))
 
         # get rating of submitting for each question
-        try:
-            sub_ratings = self.rateSub((questions, evidence))
-
-        # sometimes the model fails to predict, so just return 0s
-        except KeyboardInterrupt:
-            exit(0)
-        except:
-            sub_ratings = torch.zeros((len(states), 1), device=self.sub_encoder.device, dtype=torch.float32, requires_grad=True)
+        sub_ratings = self.rateSub((questions, evidence))
 
         # add the submission ratings to the action ratings in the first column
         preds = torch.cat([sub_ratings, preds], dim=1)
-
+        
         return preds
 

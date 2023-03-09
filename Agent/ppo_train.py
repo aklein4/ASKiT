@@ -18,8 +18,8 @@ from train_utils import Logger, train, get_mem_use
 
 
 # checkpoint locations to load pretrained models
-AGENT_CHECK = "./checkpoints/agent-pre"
-SEARCH_CHECK = "./checkpoints/searcher-p"
+AGENT_CHECK = "checkpoints/agent-pre"
+SEARCH_CHECK = "checkpoints/searcher-p"
 
 
 # path to json with training data in it
@@ -65,6 +65,8 @@ MAX_BUF = 10000
 
 # reduce training epoch size for debugging
 TRAIN_SKIP = 1
+
+DEVICE = torch.device("cuda")
 
 
 class PPOLogger(Logger):
@@ -204,15 +206,15 @@ def main():
 
     # load semantic search model
     search = Searcher(load=SEARCH_CHECK)
-    search = search.to("cuda")
+    search = search.to(DEVICE)
 
     # load agent model
     model = Agent(load=AGENT_CHECK)
-    model = model.to("cuda")
+    model = model.to(DEVICE)
 
     # load data
-    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF)
-    val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS-1, device=torch.device("cuda"), data_end=VAL_TRUNC, max_buf=1)
+    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF)
+    val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), data_end=VAL_TRUNC, max_buf=1)
 
     # init loss function pointer
     loss_fn = PPOLoss
@@ -220,7 +222,7 @@ def main():
     # init our stuff
     logger = PPOLogger(train_env, val_env, log_loc=LOG, graff=GRAFF)
     logger.initialize(model)
-    logger.log(None, None)
+    #logger.log(None, None)
 
     # init torch stuff
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)

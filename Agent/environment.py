@@ -93,10 +93,10 @@ class Environment:
 
     def shuffle(self):
         # shuffle randomly and fill buffer
-        random.shuffle(self.shuffler)
+        #random.shuffle(self.shuffler)
         self.fillBuffer()
         
-        random.shuffle(self.item_shuffler)
+        #random.shuffle(self.item_shuffler)
 
 
     def __len__(self):
@@ -260,7 +260,7 @@ class Environment:
 
                     # use search to get the top k actions
                     scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
-                    _, top_inds = torch.topk(scores, self.top_k)
+                    _, top_inds = torch.topk(scores, self.top_k-1)
 
                     # convert from indices to strings
                     action_set = [None] # actions as strings
@@ -324,7 +324,7 @@ class Environment:
                     action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
 
                     # stop if we submit, reach max depth, or run out of evidence needed for full stack
-                    if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k:
+                    if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
                         
                         num_seen += 1
                         total_f1 += self.getF1(q_ind, chosen)
@@ -376,7 +376,7 @@ class Environment:
                 
                 # use search to get the top k actions
                 scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
-                _, top_inds = torch.topk(scores, self.top_k)
+                _, top_inds = torch.topk(scores, self.top_k-1)
 
                 # convert from indices to strings
                 action_set = [None] # actions as strings
@@ -386,18 +386,19 @@ class Environment:
                     action_set += [avail_text[top_inds[i]]]
 
                 # use the agent to get the policy scores
-                policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
+                policy = self.agent.forward(([question], [evidence], [action_set[1:]]), debug=True)[0]
 
                 assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
 
                 # choose action greedily
                 action = torch.argmax(policy).item()
+                    
                 if action not in list(range(len(action_set))):
                     print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
                     action = 0
 
                 # stop if we submit, reach max depth, or run out of evidence needed for full stack
-                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k:
+                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
                     break
 
                 # continue sampling rollout
