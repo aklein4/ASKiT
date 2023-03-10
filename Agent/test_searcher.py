@@ -17,7 +17,7 @@ def main():
     with open(TEST_FILE, 'r') as f:
         data = json.load(f)
 
-    model = Searcher()
+    model = Searcher(load=" INPUT CHECKPOINT PATH HERE ")
     # model = model.cuda()
     
     encodings = torch.load(ENCODINGS, map_location=torch.device("cpu"))

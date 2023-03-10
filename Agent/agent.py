@@ -1,128 +1,130 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F 
 
-from transformers import AutoTokenizer, BertForQuestionAnswering, AutoModel
-from sentence_transformers import SentenceTransformer, util
-
-"""
-At some point this will handle the RL agent functionality
-"""
-
-ENCODING_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
-
-SEARCH_MODEL = 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1'
-#SEARCH_MODEL = "checkpoints/Agent-unnorm-77_6"
-SEARCH_TOKEN_SUFFIX = ""
-
-QA_MODEL = "deepset/bert-base-cased-squad2"
+from transformers import AutoTokenizer, AutoModelForQuestionAnswering, BertForPreTraining
 
 
-# Take average of all tokens
-def mean_pooling(model_output, attention_mask):
-    token_embeddings = model_output.last_hidden_state
-    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+# pretrained for next sentence prediction
+ACT_PRETRAINED = "prajjwal1/bert-mini"
+
+# pretrained for question answering
+SUB_PRETRAINED = "deepset/tinyroberta-squad2"
+
+# smaller model
+# SUB_PRETRAINED = "deepset/minilm-uncased-squad2"
 
 
 class Agent(nn.Module):
+    
+    def __init__(self, load=None):
+        """ An RL agent to choose the next action given the current question and evidence state.
+        - act_model is a policy model to evaluate actions (collecting evidence)
+        - sub_model is a policy model to evaluate answer submissions
 
-    def __init__(self):
+        Args:
+            load (str, optional): Folder of checkpoint to load, otherwise pretrained. Defaults to None.
+        """
         super().__init__()
+    
+        # handles ratings for actions
+        self.act_encoder = None
+        self.act_tokenizer = None
+
+        # handles ratings for submissions
+        self.sub_encoder = None
+        self.sub_tokenizer = None
+
+        # Load pretrained models
+        if load is None:
+            self.act_tokenizer = AutoTokenizer.from_pretrained(ACT_PRETRAINED)
+            self.act_encoder = BertForPreTraining.from_pretrained(ACT_PRETRAINED)
+            self.sub_tokenizer = AutoTokenizer.from_pretrained(SUB_PRETRAINED)
+            self.sub_encoder = AutoModelForQuestionAnswering.from_pretrained(SUB_PRETRAINED)
+            
+        # load checkpoint
+        else:
+            self.act_tokenizer = AutoTokenizer.from_pretrained(load + "/act_tokenizer")
+            self.act_encoder = BertForPreTraining.from_pretrained(load + "/act_encoder")
+            self.sub_tokenizer = AutoTokenizer.from_pretrained(load + "/sub_tokenizer")
+            self.sub_encoder = AutoModelForQuestionAnswering.from_pretrained(load + "/sub_encoder")
+
+
+    def rateSub(self, x):
+        """Given a question and evidence, return a rating of submitting for an answer.
+
+        Args:
+            x (tuple): (question, evidence) lists with the same length
+
+        Returns:
+            torch.tensor: [num_questions, 1] tensor of ratings
+        """
+
+        # split tuple
+        questions, evidence = x
+        assert len(questions) == len(evidence)
         
-        self.q = None
-        self.F = []
-        self.state = None
-        self.h_qF = None
-    
-        self.L_b = SentenceTransformer(ENCODING_MODEL)
+        # get output prediction from each question-evidence pair
+        toks = self.sub_tokenizer(questions, evidence, padding=True, return_tensors="pt", truncation=True, max_length=512)
+        out = self.sub_encoder(
+            toks["input_ids"].to(self.sub_encoder.device),
+            # token_type_ids = toks["token_type_ids"].to(self.sub_encoder.device),
+            attention_mask = toks["attention_mask"].to(self.sub_encoder.device)
+        )
         
-        self.L_qF_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL+SEARCH_TOKEN_SUFFIX)
-        self.L_qF = AutoModel.from_pretrained(SEARCH_MODEL)
-
-        self.b_activation = nn.Sigmoid()
-
-        self.qa_tokenizer = AutoTokenizer.from_pretrained(QA_MODEL)
-        self.qa_model = BertForQuestionAnswering.from_pretrained(QA_MODEL)
-        self.a_activation = nn.Sigmoid()
-    
-
-    def encode(self, corpus):
-        return self.L_b.encode(corpus, convert_to_tensor=True)
+        # get average of start and end [CLS] logits, negative so higher is better
+        preds = -(out.start_logits[:,0] + out.start_logits[:,1]) / 2
+        
+        return preds.unsqueeze(1)
 
 
-    def setQuestion(self, question):
-        self.q = question
-        self.reset()
+    def forward(self, x, debug=False):
+        """ Given a question, evidence, and list of actions, return a policy rating of each action.
 
-    def reset(self):
-        self.F = []
-        self.state = self.q
-        self._updateEncoding()
-    
-    def _updateEncoding(self):
-        self.h_qF = self.L_qF.encode(self.state, convert_to_tensor=True)
+        Args:
+            x (tuple): (questions, evidence, actions), questions and evidence are lists of strings, actions is a list of lists of strings
 
+        Returns:
+            torch.tensor: [num_questions, num_actions] tensor of ratings
+        """
 
-    def readFact(self, fact):
-        self.F.append(fact)
-        self.state += " " + fact
-        self._updateEncoding()
+        # unpack tuple
+        questions, evidence, actions = x
+        assert len(questions) == len(evidence) and len(evidence) == len(actions)
 
+        # check that all actions have the same length
+        n_actions = len(actions[0])
+        assert max(1 if len(a)!=n_actions else 0 for a in actions) == 0
+        
+        # turn each question-evidence pair into a state
+        states = []
+        for i in range(len(questions)):
+            states.append(questions[i] + " " + evidence[i])
 
-    def forward(self, x):
-        sentences, corpuses = x
-        assert len(sentences) == len(corpuses)
+        # vectorize the batched actions
+        vec_states = []
+        vec_actions = []
+        for l in range(len(states)):
+            vec_states += [states[l]] * n_actions
+            vec_actions += actions[l]
 
-        encoded_input = self.L_qF_tokenizer(sentences, padding=True, truncation=True, return_tensors='pt').to(corpuses[0].device)
-        model_output = self.L_qF(**encoded_input, return_dict=True)
-  
-        h_qF = mean_pooling(model_output, encoded_input["attention_mask"])
+        # get output prediction from each state-action pair
+        toks = self.act_tokenizer(vec_states, vec_actions, padding=True, return_tensors='pt', truncation=True, max_length=512)
+        preds = self.act_encoder(
+            toks["input_ids"].to(self.act_encoder.device),
+            token_type_ids = toks["token_type_ids"].to(self.act_encoder.device),
+            attention_mask = toks["attention_mask"].to(self.act_encoder.device)
+            ).seq_relationship_logits[:,0]
 
-        preds = []
-        for i in range(len(sentences)):
-            preds.append(corpuses[i] @ h_qF[i])
+        # reshape to [num_questions, num_actions] batches
+        preds = torch.reshape(preds, (len(states), n_actions))
 
+        # get rating of submitting for each question
+        sub_ratings = self.rateSub((questions, evidence))
+
+        # add the submission ratings to the action ratings in the first column
+        preds = torch.cat([sub_ratings, preds], dim=1)
+        
         return preds
 
-
-    # TODO: implement these 2 functions
-    def Qstate(self, state):
-        pass
-    def Qsubmit(self, state):
-        pass
-
-
-    def getAction(self, state, text_corpus, encodings, top_k):
-
-        encoding_evals = self.forward(([state], [encodings]))[0]
-        search_probs = torch.nn.functional.softmax(encoding_evals, dim=-1)
-
-        top_vals, top_inds = torch.topk(encoding_evals, top_k)
-        
-        new_states = []
-        for i in range(top_inds.shape[0]):
-            new_states.append(state + text_corpus[top_inds[i]])
-
-        Q_vals = self.Qstate(new_states)
-
-        Q_sub_val = self.Qsubmit(state)
-
-        if Q_sub_val.item() > torch.max(Q_vals).item():
-            return -1, search_probs
-
-        return torch.argmax(Q_vals), search_probs
-    
-
-    def _Q_b(self, b):
-        return self.b_activation(b @ self.h_qF)
-
-    def _Q_a(self):
-        
-        inputs = self.qa_tokenizer(self.q, self.state[len(self.q)+1:], return_tensors="pt")
-        outputs = self.qa_model(**inputs)
-
-        starts = self.a_activation(outputs.start_logits)
-        ends = self.a_activation(outputs.end_logits)
-
-        return (starts.T + ends) / 2

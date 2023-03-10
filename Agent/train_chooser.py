@@ -18,15 +18,20 @@ sys.path.append("../utils")
 from train_utils import Logger, train, get_mem_use
 
 
+"""
+ ----- Chooser has been deprecated in favor of Agent! -----
+"""
+
+
 TRAIN_FILE = "../local_data/hotpot_data/train.json"
 TRAIN_ENCODINGS = "../local_data/corpus_encodings/train.pt"
 
 VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
-CHECKPOINT = "./checkpoints/chooser-nat"
-LOG = "./logs/chooser-nat.csv"
-GRAFF = "./logs/chooser-nat.png"
+CHECKPOINT = "./checkpoints/chooser-drop"
+LOG = "./logs/chooser-drop.csv"
+GRAFF = "./logs/chooser-drop.png"
 
 LR = 1e-6
 BATCH_SIZE = 4
