@@ -20,7 +20,7 @@ REPLAY_SAVE =  "./checkpoints/replay_buffer.pt"
 
 class Environment:
 
-    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100):
+    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100, init_buffer=None):
 
         self.top_k = top_k
         self.device = device
@@ -76,6 +76,9 @@ class Environment:
 
         # hold all of the data that we want to train on
         self.replay_buffer = []
+
+        if init_buffer is not None:
+            self.replay_buffer = torch.load(init_buffer, map_location=self.device)
 
         # shuffles outgoing data
         self.shuffler = []

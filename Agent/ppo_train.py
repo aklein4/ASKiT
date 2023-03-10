@@ -58,6 +58,8 @@ TRAIN_START = 20000
 # truncate the validation data to this many examples
 VAL_TRUNC = 500
 
+# load the starting replay buffer from this location
+INIT_BUF = "checkpoints/replay_buffer.pt"
 # before the first epoch, fill the replay buffer with this many examples
 MIN_BUF = 1000
 # discard the oldest examples once the replay buffer eaches this size
@@ -214,7 +216,7 @@ def main():
     model = model.to(DEVICE)
 
     # load data
-    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF)
+    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF, init_buffer=INIT_BUF)
     val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), data_end=VAL_TRUNC, max_buf=1)
 
     # init loss function pointer
