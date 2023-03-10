@@ -93,10 +93,11 @@ class Environment:
 
     def shuffle(self):
         # shuffle randomly and fill buffer
-        #random.shuffle(self.shuffler)
+        random.shuffle(self.shuffler)
         self.fillBuffer()
         
-        #random.shuffle(self.item_shuffler)
+        self.item_shuffler = list(range(len(self)))
+        random.shuffle(self.item_shuffler)
 
 
     def __len__(self):

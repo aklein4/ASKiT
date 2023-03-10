@@ -66,6 +66,7 @@ MAX_BUF = 10000
 # reduce training epoch size for debugging
 TRAIN_SKIP = 1
 
+# device to run training on
 DEVICE = torch.device("cuda")
 
 
@@ -222,7 +223,7 @@ def main():
     # init our stuff
     logger = PPOLogger(train_env, val_env, log_loc=LOG, graff=GRAFF)
     logger.initialize(model)
-    #logger.log(None, None)
+    logger.log(None, None)
 
     # init torch stuff
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
