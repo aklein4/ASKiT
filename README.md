@@ -13,14 +13,14 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
 
 ## Roadmap
  
- - [ ] 1. RL search/answering
+ - [ ] 1. RL search/answering (Agent)
      - [x] Semantic Search Pretraining
      - [x] Policy pretraining
      - [ ] PPO RL fine-tuning
- - [ ] 2. Intermediate Question Asking
+ - [ ] 2. Intermediate Question Asking (Phraser, Responder, Asker)
      - [ ] Question-inversion pretraining
      - [ ] Monte-carlo/action-evaluation fine-tuning
- - [ ] 3. Recursive Question Asking
+ - [ ] 3. Recursive Question Asking (ALL)
      - [ ] PPO RL fine-tuning (supervised)
      - [ ] PPO RL fine-tuning (semi-supervised)
 

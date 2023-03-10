@@ -1,43 +1,43 @@
 
 import torch
-import torch.nn as nn
 
 import json
 import random
+import numpy as np
+
+import sys
+sys.path.append("../utils")
+from train_utils import get_mem_use
+from tqdm import tqdm
 
 
-N_FRENS = 1
-TOP_K = 10
+MAX_DEPTH = 10
 
-DATA_START = 20000
-DATA_END = 100000
+MEM_THRESH = 0.85
 
-EPSILON_START = 0.5
-EPSILON_SCHEDULE = 100
+REPLAY_SAVE =  "./checkpoints/replay_buffer.pt"
 
 
-class Env:
+class Environment:
 
-    def __init__(self, file, corpus_encodings, n_frens=None, top_k=TOP_K, epsilon_start=EPSILON_START, epsilon_schedule=EPSILON_SCHEDULE, device=torch.device("cpu")):
+    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100, init_buffer=None):
 
+        self.top_k = top_k
         self.device = device
+        self.skip = skip
+        self.max_buf = max_buf
+        self.min_buf = min_buf
+
+        self.search = search
+        self.agent = agent
 
         # json of all this data
         self.data = None
         with open(file, 'r') as f:
             self.data = json.load(f)
 
-        self.data = self.data[DATA_START:DATA_END]
-
-        for p in self.data:
-            p["raw_corpus"] = []
-            for c in range(len(p["corpus"])):
-                title = " "+ p["corpus_titles"][c] + ": "
-                for s in p["corpus"][c]:
-                    p["raw_corpus"].append(title + s)
-
-        # how big is it?
-        self.size = len(self.data)
+        # reduce data size
+        self.data = self.data[data_start:data_end]
 
         # load all of the embeddings
         self.corpus = torch.load(corpus_encodings)
@@ -45,84 +45,383 @@ class Env:
             self.corpus[i] = self.corpus[i].to(self.device)
             self.corpus[i].requires_grad = False
 
-        self.corpus = self.corpus[DATA_START:DATA_END]
+        # reduce corpus size
+        self.corpus = self.corpus[data_start:data_end]
+
+        # some of the data doesn't have big enough corpuses, so we remove it
+        temp_data = []
+        temp_corpus = []
+        for i in range(len(self.corpus)):
+            if self.corpus[i].shape[0] < 2*self.top_k:
+                continue
+            else:
+                temp_data.append(self.data[i])
+                temp_corpus.append(self.corpus[i])
+        self.data = temp_data
+        self.corpus = temp_corpus
+        
+        # generate the raw corpus for each question
+        for p in self.data:
+            p["raw_corpus"] = []
+            for c in range(len(p["corpus"])):
+                title = " "+ p["corpus_titles"][c] + ", "
+                for s in p["corpus"][c]:
+                    p["raw_corpus"].append(title + s)
+
+        # how big is it now?
+        self.size = len(self.data)
 
         # check that things match up
         assert len(self.corpus) == self.size
+
+        # hold all of the data that we want to train on
+        self.replay_buffer = []
+
+        if init_buffer is not None:
+            self.replay_buffer = torch.load(init_buffer, map_location=self.device)
+
+        # shuffles outgoing data
+        self.shuffler = []
         
-        # number of extra corpuses per question
-        self.n_frens = n_frens
+        # shuffles internal data for buffer filling
+        self.item_shuffler = []
+
+        self.reset()
+
+
+    def reset(self):
+        # reset shufflers to ranges
+        self.shuffler = list(range(self.size))
+        self.item_shuffler = list(range(len(self)))
+
+    def shuffle(self):
+        # shuffle randomly and fill buffer
+        random.shuffle(self.shuffler)
+        self.fillBuffer()
+        
+        self.item_shuffler = list(range(len(self)))
+        random.shuffle(self.item_shuffler)
+
+
+    def __len__(self):
+        # get the length of THE REPLAY BUFFER
+        return len(self.replay_buffer)
     
-        self.top_k = top_k
 
-        self.epsilon_start = epsilon_start
-        self.epsilon_schedule = epsilon_schedule
-        self.epsilon = self.epsilon_start
+    def __getitem__(self, getter):
 
-        # holds all of the states that we go through, so that we can replay them
-        # {q_id, state, corpse_ids}
-        self.Q_replay_buffer = []
+        # clear cache if memory is getting full
+        if get_mem_use() >= MEM_THRESH:
+            torch.cuda.empty_cache()
+        
+        # unpack index and batchsize
+        index = getter
+        batchsize = 1
+        if isinstance(getter, tuple):
+            index, batchsize = getter
 
-        # holds only the states that we decided to submit on, to train the submitter+responder
-        # {q_id, state}
-        self.answer_replay_buffer = []
+        # get the indices we are going to use
+        indices = self.item_shuffler[index:index+batchsize]
+
+        # [questions], [evidence], [actions]
+        x = ([], [], [])
+        
+        # [probs], [advantages]
+        y = ([], [])
+        
+        # unpack data tuples onto batch tuples
+        for i in indices:
+            q, e, a, p, A = self.replay_buffer[i]
+            
+            x[0].append(q)
+            x[1].append(e)
+            x[2].append(a)
+            
+            y[0].append(p)
+            y[1].append(A)
+
+        # x stays lists (strings), y gets stacked to tensors
+        return x, (torch.stack(y[0]), torch.stack(y[1]))
 
 
-    def cpu(self):
-        self.device = torch.device("cpu")
-        self._update_device(self)
+    def evaluate(self):
+        # evalutate the model using greedy rollouts
+        
+        # reset the environment and agents
+        self.reset()
+        self.search.eval()
+        self.agent.eval()
 
-    def cuda(self):
-        self.device = torch.device("cuda")
-        self._update_device(self)
+        # accumulate stats
+        f1s = 0
+        correct = 0
+        num_seen = 0
+        
+        with torch.no_grad():
+            # iterate through every question, testing 2 times more that we grab at every buffer fill
+            with tqdm(range(0, self.size, 1+self.skip//2), leave=False, desc="Evaluating") as pbar:
+                
+                # iterate through every question
+                for i in pbar:
+                    
+                    # get result of question rollout
+                    chosen = self.greedyRollout(i, "", self.data[i]["raw_corpus"], self.corpus[i].float())
+                    
+                    # get stats
+                    f1s += self.getF1(i, chosen)
+                    correct += self.getCorrect(i, chosen)
+                    num_seen += 1
 
-    def _update_device(self):
-        for i in range(self.size):
-            self.corpus[i] = self.corpus[i].to(self.device)
+                    pbar.set_postfix({'acc': correct/num_seen, 'f1': f1s/num_seen})
+
+        # return mean stats
+        return f1s / num_seen, correct / num_seen
 
 
-    def renew_buffers(self, model, final_size, gamma_keep):
+    def getF1(self, q_id, chosen):
+        # get the f1 score of a chosen set of evidence
+        # given the question id and the chosen evidence strings
+
+        p = self.data[q_id]
+
+        # get the gold evidence strings
+        gold = p["evidence_raw_ids"].copy()
+        for i in range(len(gold)):
+            gold[i] = p["raw_corpus"][gold[i]]
+
+        # compare pred vs gold
+        correct = 0
+        for c in chosen:
+            if c in gold:
+                correct += 1
+
+        # calc stats
+        precision = correct / max(len(chosen), 1)
+        recall = correct / max(1, len(gold))
+
+        # turn into f1
+        f1 = 0
+        if precision + recall > 0:
+            f1 = 2 * precision * recall / (precision + recall)
+
+        return f1
+
+
+    def getCorrect(self, q_id, chosen):
+        # get whether a chosen set of evidence is exactly correct
+        return self.getF1(q_id, chosen) == 1
+
+
+    def fillBuffer(self):
+        # fill the buffer with stochastic rollout tuples
+        
+        # reset models
+        self.search.eval()
+        self.agent.eval()
 
         with torch.no_grad():
+            
+            # iterate through every question, skipping every self.skip
+            ran = range(0, self.size, self.skip)
+            
+            # if the buffer is empty, fill it up to the minimum
+            if len(self.replay_buffer) == 0:
+                ran = range(self.min_buf)
+            
+            # for printing purposes
+            total_f1 = 0
+            total_acc = 0
+            num_seen = 0
+            
+            # iterate through the questions in ran
+            pbar = tqdm(ran, leave=False, desc="Exploring")
+            for shuffle_index in pbar:
+                
+                # use shuffler to get the question
+                q_ind = self.shuffler[shuffle_index]
+                p = self.data[q_ind]
 
-            Q_keep = round(len(self.Q_replay_buffer) * gamma_keep)
-            self.Q_replay_buffer = random.choices(population=self.Q_replay_buffer, k=Q_keep)
+                # question is same throughout rollout
+                question = p["question"]
+                
+                # evidence grows as we go
+                evidence = ""
 
-            answer_keep = round(len(self.answer_replay_buffer) * gamma_keep)
-            self.answer_replay_buffer = random.choices(population=self.answer_replay_buffer, k=answer_keep)
+                # available evidence starts as the whole corpus, gets smaller
+                avail_text = p["raw_corpus"].copy()
+                # available encodings starts as the whole corpus, gets smaller
+                avail_encodings = self.corpus[q_ind].float()
 
-            while len(self.Q_replay_buffer) < final_size:
+                # evidence that has been chosen during rollout
+                chosen = []
 
-                question_id = random.randrange(self.size)
+                assert len(avail_text) == avail_encodings.shape[0]
 
-                corpse_ids = [question_id]
-                corpse = [self.corpus[question_id]]
-                text_corpus = self.data[question_id]["raw_corpus"]
-
-                for f in range(self.n_frens):
-                    c = random.randrange(len(self.corpus))
-                    corpse_ids.append(c)
-                    corpse.append(self.corpus[c])
-                    text_corpus += self.data[c]["raw_corpus"]
-
-                corpse = torch.cat(corpse)
-
-                state = self.data[question_id]["question"]
-
+                # go until we either stop or run out of evidence
                 while True:
-                    self.Q_replay_buffer.append((question_id, state, corpse_ids))
+                
+                    """ Get the available actions """
 
-                    action, search_probs = model.getAction(state, text_corpus, corpse, top_k=self.top_k)
+                    # use search to get the top k actions
+                    scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
+                    _, top_inds = torch.topk(scores, self.top_k-1)
 
-                    # -1 will represent the submission of an answer
-                    # TODO: figure out how to choose this with epsilon
-                    if action == -1:
-                        self.answer_replay_buffer.append((question_id, state))
+                    # convert from indices to strings
+                    action_set = [None] # actions as strings
+                    action_inds = [None] # actions as indices
+                    for i in range(top_inds.shape[0]):
+                        action_inds += [top_inds[i]]
+                        action_set += [avail_text[top_inds[i]]]
+
+                    """ Get the rewards for each action """
+
+                    # get the reward for choosing each action, first action is submit -> reward is current f1
+                    rewards = [self.getF1(q_ind, chosen)]
+                    
+                    # greedy rollout of all actions to get monte-carlo baseline
+                    for curr_a in range(1, len(action_set)):
+
+                        # the chosen set for this rollout
+                        temp_chosen = chosen.copy() + [action_set[curr_a]]
+                        
+                        # the evidence string for this rollout
+                        temp_evidence = evidence + action_set[curr_a]
+
+                        # the available text for this rollout
+                        temp_avail_text = avail_text.copy()
+                        temp_avail_text.pop(action_inds[curr_a])
+
+                        # the available encodings for this rollout (cat does implicit copy)
+                        temp_avail_encodings = torch.cat([avail_encodings[:action_inds[curr_a]], avail_encodings[action_inds[curr_a]+1:]])   
+
+                        # assert availabilities are the same length
+                        assert len(temp_avail_text) == temp_avail_encodings.shape[0]
+
+                        # roll this new stats out and get the final chosen set
+                        temp_chosen + self.greedyRollout(q_ind, temp_evidence, temp_avail_text, temp_avail_encodings, start_depth=len(chosen))
+
+                        # get the reward for this rollout
+                        r = self.getF1(q_ind, temp_chosen)
+                        rewards.append(r)
+
+                    # rewards should be tensor
+                    rewards = torch.tensor(rewards).to(self.device).float()
+
+                    """ Calculate the advantage and save the data """
+
+                    # get the policy probabilities for the current state   (remove None from first element of action_set)
+                    policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]     
+                    policy = torch.nn.functional.softmax(policy, dim=-1)
+
+                    # use rewards and probs to get expected value
+                    V_s = torch.sum(policy * rewards).item()
+                    
+                    # calculate the action-wise advantage vs expectation
+                    advantage = rewards - V_s
+
+                    # save (q, e, A, p, Adv) tuple to buffer
+                    self.replay_buffer.append((question, evidence, action_set[1:].copy(), policy.detach(), advantage.detach()))
+
+                    """ Sample a random trajectory """
+
+                    # sample a random action from the policy to continue the trajectory
+                    action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+
+                    # stop if we submit, reach max depth, or run out of evidence needed for full stack
+                    if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
+                        
+                        num_seen += 1
+                        total_f1 += self.getF1(q_ind, chosen)
+                        total_acc += self.getCorrect(q_ind, chosen)
+                        pbar.set_postfix({"f1": total_f1/num_seen, "acc": total_acc/num_seen})
+                        
                         break
 
-                    # make random choice according to weighted greedy-epsilon
-                    if random.random() < self.epsilon:
-                        action = random.choices(range(search_probs.shape[0]), weights=search_probs.cpu().tolist(), k=1)
+                    # continue sampling rollout
+                    else:
 
-                    # otherwise we step with the collected evidence
-                    state += text_corpus[action]
+                        # add the chosen action to the running evidence and chosen
+                        new_ev_str = action_set[action]
+                        chosen.append(new_ev_str)
+                        evidence += new_ev_str
+                    
+                        # remove the chosen action from the available evidence
+                        avail_text.pop(action_inds[action])    
+                        avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+                        
+                        assert len(avail_text) == avail_encodings.shape[0]
+
+            # close the progress bar
+            pbar.close()
+
+        # keep the buffer its max size, by removing the oldest tuples
+        self.replay_buffer = self.replay_buffer[-self.max_buf:]
+
+        # save the replay buffer to quickly restart training later
+        torch.save(self.replay_buffer, REPLAY_SAVE)
+
+
+    def greedyRollout(self, question_id, evidence, avail_text, avail_encodings, start_depth=0):
+        # finish a greedy rollout from the current state
+
+        # get the question using the id
+        question = self.data[question_id]["question"]
+
+        # make sure that we don't modify the original text corpus
+        avail_text = avail_text.copy()
+        
+        # fill chossen with only the evidence that this function chooses
+        chosen = []
+
+        # go until end
+        with torch.no_grad():
+            while True:
+                
+                
+                # use search to get the top k actions
+                scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
+                _, top_inds = torch.topk(scores, self.top_k-1)
+
+                # convert from indices to strings
+                action_set = [None] # actions as strings
+                action_inds = [None] # actions as indices
+                for i in range(top_inds.shape[0]):
+                    action_inds += [top_inds[i]]
+                    action_set += [avail_text[top_inds[i]]]
+
+                # use the agent to get the policy scores
+                policy = self.agent.forward(([question], [evidence], [action_set[1:]]), debug=True)[0]
+
+                assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
+
+                # choose action greedily
+                action = torch.argmax(policy).item()
+                    
+                if action not in list(range(len(action_set))):
+                    print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
+                    action = 0
+
+                # stop if we submit, reach max depth, or run out of evidence needed for full stack
+                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
+                    break
+
+                # continue sampling rollout
+                else:
+
+                    # add the chosen action to the running evidence and chosen
+                    new_ev_str = action_set[action]
+                    chosen.append(new_ev_str)
+                    evidence += new_ev_str
+                
+                    # remove the chosen action from the available evidence
+                    avail_text.pop(action_inds[action])    
+                    avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+                    assert len(avail_text) == avail_encodings.shape[0]
+
+        
+        # clear cache if memory is getting full
+        if get_mem_use() >= MEM_THRESH:
+            torch.cuda.empty_cache()
+
+        # return the chosen evidence that was chosen during this rollout
+        return chosen

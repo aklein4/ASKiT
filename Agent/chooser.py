@@ -7,6 +7,11 @@ from transformers import AutoModel, AutoTokenizer
 
 
 """
+ ----- Chooser has been deprecated in favor of Agent! -----
+"""
+
+
+"""
 https://huggingface.co/mrm8488/bert-medium-finetuned-squadv2
 """
 PRETRAINED = "mrm8488/bert-mini-5-finetuned-squadv2"
@@ -28,7 +33,10 @@ class Chooser(nn.Module):
 
         # turn transformer output into single scalar
         self.head = nn.Sequential(
-            nn.Linear(256, 1, bias=False)
+            nn.Dropout(p=0.25),
+            nn.Linear(256, 64, bias=True),
+            nn.ELU(),
+            nn.Linear(64, 1, bias=False)
         )
 
         # from cls version
