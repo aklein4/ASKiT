@@ -180,35 +180,32 @@ def PPOLoss(pred, target):
 
     # old_policy are probabilities from when data was originally collected,
     # advantage is how good an action is relative to expectation
-    old_policy, advantage = target
+    mask, old_policy, advantage = target
 
-    assert pred.shape == old_policy.shape and pred.shape == advantage.shape
-
-    correct_mask = advantage == torch.max(advantage, dim=-1).values
-
-    log_probs = torch.where(correct_mask, torch.nn.functional.log_softmax(pred, dim=-1), 0)
-
-    return -torch.sum(log_probs) / pred.shape[0]
-
+    assert pred.shape == old_policy.shape and pred.shape == advantage.shape and pred.shape == mask.shape
+    
     # model output is logits -> convert to probabilities
-    # probs = torch.nn.functional.softmax(pred, dim=-1)
+    probs = torch.nn.functional.softmax(pred, dim=-1)
+
+    # apply action masking to all tensors
+    probs, old_policy, advantage = probs[mask], old_policy[mask], advantage[mask]
 
     # we use the old policy to regularize the current one
-    # ratio = probs / old_policy
+    ratio = probs / old_policy
 
     # clip to avoid the policy from making too big a change at once
-    # clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
+    clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
     
     # we want higher advantage choices to have higher ratio
-    # A_r = advantage * ratio
-    # A_clipped = advantage * clipped_ratio
+    A_r = advantage * ratio
+    A_clipped = advantage * clipped_ratio
 
     # this handles high/low clip vs. +/- advantage
     # (just think about the cases)
-    # minned = torch.minimum(A_r, A_clipped)
+    minned = torch.minimum(A_r, A_clipped)
 
     # return average, negative to minimize
-    # return -torch.sum(minned) / pred.shape[0]
+    return -torch.sum(minned) / pred.shape[0]
 
 
 def main():
