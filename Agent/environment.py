@@ -11,9 +11,9 @@ from train_utils import get_mem_use
 from tqdm import tqdm
 
 
-MAX_DEPTH = 10
+MAX_DEPTH = 8
 
-MEM_THRESH = 0.85
+MEM_THRESH = 0.80
 
 REPLAY_SAVE =  "./checkpoints/replay_buffer.pt"
 
@@ -302,6 +302,11 @@ class Environment:
 
                         # get the reward for this rollout
                         r = self.getF1(q_ind, temp_chosen)
+                        
+                        # add some extra umph to force good accuracy
+                        if r == 1.0:
+                            r += 1
+
                         rewards.append(r)
 
                     # rewards should be tensor

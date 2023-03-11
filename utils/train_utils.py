@@ -248,6 +248,8 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
             # this will be sent to logger
             train_log = (train_preds, train_y)
             
+            torch.cuda.empty_cache()
+            
             val_log = None
             
             # run validation
@@ -307,6 +309,8 @@ def train(model, optimizer, train_data, loss_fn, val_data=None, num_epochs=None,
                 
                 # other arg for logger
                 val_log = (val_preds, val_y)
+            
+            torch.cuda.empty_cache()
             
             # call logger
             if logger is not None:

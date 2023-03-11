@@ -33,21 +33,21 @@ VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 # folder to save checkpoints to
-CHECKPOINT = "./checkpoints/ppo"
+CHECKPOINT = "./checkpoints/onehot_ppo"
 # csv file to save progress logs to
-LOG = "./logs/ppo.csv"
+LOG = "./logs/onehot_ppo.csv"
 # png file to save graph of progress to
-GRAFF = "./logs/ppo.png"
+GRAFF = "./logs/onehot_ppo.png"
 
 # training hyperparameters
 LR = 1e-6
-BATCH_SIZE = 8
+BATCH_SIZE = 6
 
 # number of actions to choose from, including submit
-N_ACTIONS = 8
+N_ACTIONS = 6
 
 # clip hyperparameter for PPO Loss
-CLIP_ALPHA = 0.2
+CLIP_ALPHA = 0.1
 
 # evey epoch, add 1/SKIP episodes to the replay buffer
 SKIP = 300
@@ -61,9 +61,9 @@ VAL_TRUNC = 500
 # load the starting replay buffer from this location
 INIT_BUF = "checkpoints/replay_buffer.pt"
 # before the first epoch, fill the replay buffer with this many examples
-MIN_BUF = 1000
+MIN_BUF = 5000
 # discard the oldest examples once the replay buffer eaches this size
-MAX_BUF = 10000
+MAX_BUF = 25000
 
 # reduce training epoch size for debugging
 TRAIN_SKIP = 1
@@ -184,25 +184,32 @@ def PPOLoss(pred, target):
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape
 
+    correct_mask = advantage == torch.max(advantage, dim=-1).values
+
+    prob_correct = torch.where(correct_mask, pred, 1)
+    log_probs = torch.log(prob_correct)
+
+    return -torch.sum(log_probs) / pred.shape[0]
+
     # model output is logits -> convert to probabilities
-    probs = torch.nn.functional.softmax(pred, dim=-1)
+    # probs = torch.nn.functional.softmax(pred, dim=-1)
 
     # we use the old policy to regularize the current one
-    ratio = probs / old_policy
+    # ratio = probs / old_policy
 
     # clip to avoid the policy from making too big a change at once
-    clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
+    # clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
     
     # we want higher advantage choices to have higher ratio
-    A_r = advantage * ratio
-    A_clipped = advantage * clipped_ratio
+    # A_r = advantage * ratio
+    # A_clipped = advantage * clipped_ratio
 
     # this handles high/low clip vs. +/- advantage
     # (just think about the cases)
-    minned = torch.minimum(A_r, A_clipped)
+    # minned = torch.minimum(A_r, A_clipped)
 
     # return average, negative to minimize
-    return -torch.sum(minned) / pred.shape[0]
+    # return -torch.sum(minned) / pred.shape[0]
 
 
 def main():
@@ -231,8 +238,8 @@ def main():
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=1000,
-        num_training_steps=40000,
+        num_warmup_steps=10000,
+        num_training_steps=50000,
     )
 
     # train indefinitely
