@@ -61,9 +61,9 @@ VAL_TRUNC = 500
 # load the starting replay buffer from this location
 INIT_BUF = "checkpoints/replay_buffer.pt"
 # before the first epoch, fill the replay buffer with this many examples
-MIN_BUF = 5000
+MIN_BUF = 1000
 # discard the oldest examples once the replay buffer eaches this size
-MAX_BUF = 25000
+MAX_BUF = 5000
 
 # reduce training epoch size for debugging
 TRAIN_SKIP = 1
@@ -186,8 +186,7 @@ def PPOLoss(pred, target):
 
     correct_mask = advantage == torch.max(advantage, dim=-1).values
 
-    prob_correct = torch.where(correct_mask, pred, 1)
-    log_probs = torch.log(prob_correct)
+    log_probs = torch.where(correct_mask, torch.nn.functional.log_softmax(pred, dim=-1), 0)
 
     return -torch.sum(log_probs) / pred.shape[0]
 
