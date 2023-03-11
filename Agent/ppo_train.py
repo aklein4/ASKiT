@@ -47,7 +47,7 @@ BATCH_SIZE = 6
 N_ACTIONS = 6
 
 # clip hyperparameter for PPO Loss
-CLIP_ALPHA = 0.1
+CLIP_ALPHA = 0.2
 
 # evey epoch, add 1/SKIP episodes to the replay buffer
 SKIP = 300
@@ -59,7 +59,7 @@ TRAIN_START = 20000
 VAL_TRUNC = 500
 
 # load the starting replay buffer from this location
-INIT_BUF = "checkpoints/replay_buffer.pt"
+INIT_BUF = None # "checkpoints/replay_buffer.pt"
 # before the first epoch, fill the replay buffer with this many examples
 MIN_BUF = 1000
 # discard the oldest examples once the replay buffer eaches this size
@@ -228,7 +228,7 @@ def main():
     # init our stuff
     logger = PPOLogger(train_env, val_env, log_loc=LOG, graff=GRAFF)
     logger.initialize(model)
-    logger.log(None, None)
+    # logger.log(None, None)
 
     # init torch stuff
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
