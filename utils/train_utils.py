@@ -4,8 +4,7 @@ import torch
 from tqdm import tqdm
 import os
 
-# nvidia-ml-py3
-import nvidia_smi
+import nvidia_smi # pip install nvidia-ml-py3
 try:
     nvidia_smi.nvmlInit()
 except:

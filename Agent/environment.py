@@ -40,7 +40,7 @@ class Environment:
         self.data = self.data[data_start:data_end]
 
         # load all of the embeddings
-        self.corpus = torch.load(corpus_encodings)
+        self.corpus = torch.load(corpus_encodings, map_location=self.device)
         for i in range(len(self.corpus)):
             self.corpus[i] = self.corpus[i].to(self.device)
             self.corpus[i].requires_grad = False
@@ -144,7 +144,7 @@ class Environment:
         return x, (torch.stack(y[0]), torch.stack(y[1]))
 
 
-    def evaluate(self):
+    def evaluate(self, return_states=False):
         # evalutate the model using greedy rollouts
         
         # reset the environment and agents
@@ -157,6 +157,8 @@ class Environment:
         correct = 0
         num_seen = 0
         
+        states = []
+
         with torch.no_grad():
             # iterate through every question, testing 2 times more that we grab at every buffer fill
             with tqdm(range(0, self.size, 1+self.skip//2), leave=False, desc="Evaluating") as pbar:
@@ -172,7 +174,13 @@ class Environment:
                     correct += self.getCorrect(i, chosen)
                     num_seen += 1
 
+                    if return_states:
+                        states.append((self.data[i]["question"], chosen))
+
                     pbar.set_postfix({'acc': correct/num_seen, 'f1': f1s/num_seen})
+
+        if return_states:
+            return states
 
         # return mean stats
         return f1s / num_seen, correct / num_seen
