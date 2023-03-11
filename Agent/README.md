@@ -13,7 +13,7 @@ This model will be bread (though possibly not the butter) of this project. It wi
      - [x] Find small question answering model (preferably with SQUAD 2.0 capabilities)
      - [x] Pretrain to identify hotpot evidence
  - [ ] Fine-tune full system using RL
-     - [ ] Create RL environment/PPO script
+     - [x] Create RL environment/PPO script
      - [ ] Fine-tune Policy model
      - [ ] Fine-tune semantic search model
  
@@ -25,3 +25,5 @@ This paper - [https://arxiv.org/pdf/1906.00300.pdf#page=10&zoom=100,89,695](http
 
  - How much do we discount future rewards, since later on we will want to collect as few pieces of evidence as necessary
    - Use gamma=1 with f1 smoothing
+ - We could use entropy/temperature coefficient during PPO exploration to help increase exploitation
+ - How could wee measure the 'overall quality' of a set of evidence for beam-search approaches?
