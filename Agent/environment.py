@@ -20,7 +20,7 @@ REPLAY_SAVE =  "./checkpoints/replay_buffer.pt"
 
 class Environment:
 
-    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100, init_buffer=Nonei, exploration_coefficient=1):
+    def __init__(self, file, corpus_encodings, search, agent, top_k, device=torch.device("cpu"), skip=1, data_start=0, data_end=10000000, max_buf=100000, min_buf=100, init_buffer=None, exploration_coefficient=1):
 
         self.top_k = top_k
         self.device = device
@@ -317,8 +317,8 @@ class Environment:
                     """ Calculate the advantage and save the data """
 
                     # get the policy probabilities for the current state   (remove None from first element of action_set)
-                    policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]     
-                    policy = torch.nn.functional.softmax(policy, dim=-1)
+                    logits = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]     
+                    policy = torch.nn.functional.softmax(logits, dim=-1)
 
                     # use rewards and probs to get expected value
                     V_s = torch.sum(policy * rewards).item()
@@ -331,9 +331,9 @@ class Environment:
                     mask = advantage > 0.0
                     self.replay_buffer.append((question, evidence, action_set[1:].copy(), mask, policy.detach(), advantage.detach()))
  
-                    policy *= self.exploration_coefficient
+                    probs = torch.nn.functional.softmax(logits * self.exploration_coefficient, dim=-1)
                     # sample a random action from the policy to continue the trajectory
-                    action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+                    action = np.random.choice(np.arange(policy.numel()), p=probs.detach().cpu().numpy())
 
                     # stop if we submit, reach max depth, or run out of evidence needed for full stack
                     if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:

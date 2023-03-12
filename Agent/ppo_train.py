@@ -33,11 +33,11 @@ VAL_FILE = "../local_data/hotpot_data/val.json"
 VAL_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 # folder to save checkpoints to
-CHECKPOINT = "./checkpoints/onehot_ppo"
+CHECKPOINT = "./checkpoints/quasi_ppo"
 # csv file to save progress logs to
-LOG = "./logs/onehot_ppo.csv"
+LOG = "./logs/quasi_ppo.csv"
 # png file to save graph of progress to
-GRAFF = "./logs/onehot_ppo.png"
+GRAFF = "./logs/quasi_ppo.png"
 
 # training hyperparameters
 LR = 1e-6
@@ -67,6 +67,9 @@ MAX_BUF = 5000
 
 # reduce training epoch size for debugging
 TRAIN_SKIP = 1
+
+# temperature coef for exploration sampling
+EXPLORE_COEF = 3
 
 # device to run training on
 DEVICE = torch.device("cuda")
@@ -184,28 +187,31 @@ def PPOLoss(pred, target):
 
     assert pred.shape == old_policy.shape and pred.shape == advantage.shape and pred.shape == mask.shape
     
+    J = torch.nn.functional.log_softmax(pred, dim=-1)[mask] * advantage[mask]
+    return torch.sum(J) / pred.shape[0]
+
     # model output is logits -> convert to probabilities
-    probs = torch.nn.functional.softmax(pred, dim=-1)
+    #probs = torch.nn.functional.softmax(pred, dim=-1)
 
     # apply action masking to all tensors
-    probs, old_policy, advantage = probs[mask], old_policy[mask], advantage[mask]
+    #probs, old_policy, advantage = probs[mask], old_policy[mask], advantage[mask]
 
     # we use the old policy to regularize the current one
-    ratio = probs / old_policy
+    #ratio = probs / old_policy
 
     # clip to avoid the policy from making too big a change at once
-    clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
+    #clipped_ratio = torch.clip(ratio, 1-CLIP_ALPHA, 1+CLIP_ALPHA)
     
     # we want higher advantage choices to have higher ratio
-    A_r = advantage * ratio
-    A_clipped = advantage * clipped_ratio
+    #A_r = advantage * ratio
+    #A_clipped = advantage * clipped_ratio
 
     # this handles high/low clip vs. +/- advantage
     # (just think about the cases)
-    minned = torch.minimum(A_r, A_clipped)
+    #minned = torch.minimum(A_r, A_clipped)
 
     # return average, negative to minimize
-    return -torch.sum(minned) / pred.shape[0]
+    #return -torch.sum(minned) / pred.shape[0]
 
 
 def main():
@@ -219,7 +225,7 @@ def main():
     model = model.to(DEVICE)
 
     # load data
-    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF, init_buffer=INIT_BUF)
+    train_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF, init_buffer=INIT_BUF, exploration_coefficient=EXPLORE_COEF)
     val_env = Environment(VAL_FILE, VAL_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), data_end=VAL_TRUNC, max_buf=1)
 
     # init loss function pointer
@@ -228,7 +234,7 @@ def main():
     # init our stuff
     logger = PPOLogger(train_env, val_env, log_loc=LOG, graff=GRAFF)
     logger.initialize(model)
-    # logger.log(None, None)
+    logger.log(None, None)
 
     # init torch stuff
     optimizer = torch.optim.AdamW(params=model.parameters(), lr=LR)
