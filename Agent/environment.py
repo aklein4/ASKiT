@@ -328,15 +328,17 @@ class Environment:
 
                     """ Sample a random trajectory """
                     # save (q, e, A, mask, p, Adv) tuple to buffer
-                    mask = advantage > 0.0
+                    mask = torch.zeros_like(advantage).bool()
+                    action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+                    mask[action] = True
                     self.replay_buffer.append((question, evidence, action_set[1:].copy(), mask, policy.detach(), advantage.detach()))
  
-                    probs = torch.nn.functional.softmax(logits * self.exploration_coefficient, dim=-1)
+                    # probs = torch.nn.functional.softmax(logits * self.exploration_coefficient, dim=-1)
                     # sample a random action from the policy to continue the trajectory
-                    action = np.random.choice(np.arange(policy.numel()), p=probs.detach().cpu().numpy())
+                    # action = np.random.choice(np.arange(policy.numel()), p=probs.detach().cpu().numpy())
 
                     # stop if we submit, reach max depth, or run out of evidence needed for full stack
-                    if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
+                    if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k:
                         
                         num_seen += 1
                         total_f1 += self.getF1(q_ind, chosen)
@@ -410,7 +412,7 @@ class Environment:
                     action = 0
 
                 # stop if we submit, reach max depth, or run out of evidence needed for full stack
-                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k-1:
+                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k:
                     break
 
                 # continue sampling rollout
