@@ -34,8 +34,6 @@ N_ACTIONS = 8
 # evey epoch, add 1/SKIP episodes to the replay buffer
 SKIP = 300
 
-# start the training data at this index (we pretrained on the first 20000 elements)
-TRAIN_START = 20000
 
 # truncate the validation data to this many examples
 VAL_TRUNC = 500
@@ -65,8 +63,6 @@ def main():
     
     t_data = t_env.data
     t_corpus = t_env.corpus
-    print("test")
-    return
     data_list = []
     with torch.no_grad():
         with tqdm(0, len(t_data)) as p:
@@ -74,6 +70,7 @@ def main():
                 question = t_data[i]["question"]
                 chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus.corpus[i].float())
                 data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
+                break
     
     with open(OUTFILE, 'w') as f:
         json.dump(data_list, f)
