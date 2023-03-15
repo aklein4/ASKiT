@@ -77,8 +77,6 @@ def main():
             question = t_data[i]["question"]
             chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus[i].float())
             data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
-            if i == 10: 
-                break
     print("Done.")
     print("Writing to JSON...")
     with open(OUTFILE, 'w') as f:
