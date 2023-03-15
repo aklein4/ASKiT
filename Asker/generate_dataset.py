@@ -12,6 +12,7 @@ from agent import Agent
 from environment import Environment
 
 OUTFILE = "generated_data/generated_training_data.json"
+SMALL_OUTFILE = "generated_data/generated_training_data_small.json"
 
 #checkpoint locations to load pretrained models
 AGENT_CHECK = "../../checkpoints/agent-pre"
@@ -77,8 +78,16 @@ def main():
             question = t_data[i]["question"]
             chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus[i].float())
             data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
+            if i == 1000:
+                with open(SMALL_OUTFILE, 'w') as f:
+                    json.dump(data_list, f)
+            elif i % 5000 == 0:
+                print("Saving...")
+                with open(OUTFILE, 'w') as f:
+                    json.dump(data_list, f)
+                print("Save complete. Resuming generation...")
     print("Done.")
-    print("Writing to JSON...")
+    print("Writing final JSON...")
     with open(OUTFILE, 'w') as f:
         json.dump(data_list, f)
     print("Done.")
