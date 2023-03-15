@@ -53,8 +53,6 @@ DEVICE = torch.device("cuda")
 
 
 def main():
-    print("test")
-    return
     # load search model
     search = Searcher(load=SEARCH_CHECK)
     search = search.to(DEVICE)
@@ -67,7 +65,8 @@ def main():
     
     t_data = t_env.data
     t_corpus = t_env.corpus
-
+    print("test")
+    return
     data_list = []
     with torch.no_grad():
         with tqdm(0, len(t_data)) as p:
