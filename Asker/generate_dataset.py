@@ -51,6 +51,7 @@ DEVICE = torch.device("cuda")
 
 
 def main():
+    print("Loading models...")
     # load search model
     search = Searcher(load=SEARCH_CHECK)
     search = search.to(DEVICE)
@@ -58,11 +59,15 @@ def main():
     # load agent model
     model = Agent(load=AGENT_CHECK)
     model = model.to(DEVICE)
+    print("Done.")
 
+    print("Initializing Environment...")
     t_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, max_buf=MAX_BUF, min_buf=MIN_BUF)
-    
     t_data = t_env.data
     t_corpus = t_env.corpus
+    print("Done.")
+
+    print("Beginning example generation...")
     data_list = []
     with torch.no_grad():
         #with tqdm(0, len(t_data)) as p:
@@ -70,13 +75,15 @@ def main():
             if i % 10 == 0:
                 print("Generated " + str(i) + " / " + str(len(t_data)) + "examples.")
             question = t_data[i]["question"]
-            chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus.corpus[i].float())
+            chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus[i].float())
             data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
             break
-    
+    print("Done.")
+    print("Writing to JSON...")
     with open(OUTFILE, 'w') as f:
         json.dump(data_list, f)
-
+    print("Done.")
+    print("Generation complete.")
 
 if __name__== '__main__':
     main()
