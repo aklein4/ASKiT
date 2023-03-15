@@ -65,12 +65,14 @@ def main():
     t_corpus = t_env.corpus
     data_list = []
     with torch.no_grad():
-        with tqdm(0, len(t_data)) as p:
-            for i in p:
-                question = t_data[i]["question"]
-                chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus.corpus[i].float())
-                data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
-                break
+        #with tqdm(0, len(t_data)) as p:
+        for i in range(len(t_data)):
+            if i % 10 == 0:
+                print("Generated " + str(i) + " / " + str(len(t_data)) + "examples.")
+            question = t_data[i]["question"]
+            chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus.corpus[i].float())
+            data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
+            break
     
     with open(OUTFILE, 'w') as f:
         json.dump(data_list, f)
