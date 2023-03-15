@@ -59,7 +59,7 @@ def main():
     model = Agent(load=AGENT_CHECK)
     model = model.to(DEVICE)
 
-    t_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, data_start=TRAIN_START, max_buf=MAX_BUF, min_buf=MIN_BUF)
+    t_env = Environment(TRAIN_FILE, TRAIN_ENCODINGS, search, model, N_ACTIONS, device=torch.device(DEVICE), skip=SKIP, max_buf=MAX_BUF, min_buf=MIN_BUF)
     
     t_data = t_env.data
     t_corpus = t_env.corpus
