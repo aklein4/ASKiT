@@ -72,18 +72,19 @@ def main():
     with torch.no_grad():
         #with tqdm(0, len(t_data)) as p:
         for i in range(len(t_data)):
-            if i % 10 == 0:
-                print("Generated " + str(i) + " / " + str(len(t_data)) + "examples.")
+            if i % 100 == 0: 
+                print("Generated " + str(i) + " / " + str(len(t_data)) + " examples.")
             question = t_data[i]["question"]
             chosen = t_env.greedyRollout(i, "", t_data[i]["raw_corpus"], t_corpus[i].float())
             data_list.append({"question": question, "chosen": '<sep>'.join(chosen)})
-            break
+            if i == 10: 
+                break
     print("Done.")
     print("Writing to JSON...")
     with open(OUTFILE, 'w') as f:
         json.dump(data_list, f)
     print("Done.")
-    print("Generation complete.")
+    print("Generation complete. Have a nice day!")
 
 if __name__== '__main__':
     main()
