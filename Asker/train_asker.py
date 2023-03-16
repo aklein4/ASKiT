@@ -85,10 +85,11 @@ def main():
     tr_tok_data = tr_tok_data.map(addEOS)
     tr_tok_data = tr_tok_data.map(convertToFeatures, batched=True)
 
-    v_tok_data = tr_data.map(addGenPrefix)
-    v_tok_data = tr_tok_data.map(addEOS)
-    v_tok_data = tr_tok_data.map(convertToFeatures, batched=True)
+    v_tok_data = v_data.map(addGenPrefix)
+    v_tok_data = v_tok_data.map(addEOS)
+    v_tok_data = v_tok_data.map(convertToFeatures, batched=True)
     
+    print("success")
     #tok_data  = map(add_eos_examples, data)
     #tok_data = tok_data.map(convert_to_features, batched=True)
     #print(tok_data[0]["question"])
