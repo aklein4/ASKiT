@@ -117,6 +117,8 @@ def main():
             }
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR,
+                                      per_device_train_batch_size=1, 
+                                      per_device_eval_batch_size=1,
                                       optim='adamw_torch',
                                       gradient_accumulation_steps=16,
                                       learning_rate=1e-4,
