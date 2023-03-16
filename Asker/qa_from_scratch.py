@@ -27,6 +27,7 @@ from transformers import (
     Trainer,
     TrainingArguments)
 import wandb
+
 OUTPUT_DIR = "models/testpoint"
 
 wandb.login()
@@ -34,7 +35,7 @@ login('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')
 raw_dataset = load_dataset("squad_modified_for_t5_qg.py")
 checkpoint = "t5-base"
 model = T5ForConditionalGeneration.from_pretrained(checkpoint)
-tokenizer = T5TokenizerFast.from_pretrained(checkpoint)
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
 tokenizer.sep_token = '<sep>'
 
@@ -116,7 +117,7 @@ class T2TDataCollator():
         'decoder_attention_mask': decoder_attention_mask
     }
   
-training_args = TrainingArguments(output_dir="./gdrive/My Drive/models", 
+training_args = TrainingArguments(output_dir=OUTPUT_DIR, 
                                   per_device_train_batch_size=4, 
                                   per_device_eval_batch_size=4,
                                   gradient_accumulation_steps=16,
