@@ -40,8 +40,8 @@ def main():
         appendGenPrefix(data)
 
         # Load tokenizer/asker model
-        tokenizer = T5TokenizerFast.from_pretrained(ASKER_MODEL, model_max_length=512)
         asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
+        tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
         
         # Consider '<sep>' token
         tokenizer.sep_token = '<sep>'
