@@ -1,6 +1,7 @@
 import torch
 import json
 import random
+import logging
 from typing import Dict, List, Optional
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5ForConditionalGeneration, T5TokenizerFast, T5Tokenizer, EvalPrediction, Trainer, TrainingArguments
@@ -24,10 +25,7 @@ MAX_INPUT_LENGTH = 512
 
 MAX_TARGET_LENGTH = 128
 
-
-def removeSepToken(data):
-    for d in data:
-        d["chosen"] = d["chosen"].replace("<sep>", "")
+OUTPUT_DIR = "models/"
 
 
 def main():
@@ -77,7 +75,7 @@ def main():
         return example
     
     def removeSepTokens(example):
-        example['questions'] = example['questions'].replace('<sep>', '')
+        example['chosen'] = example['chosen'].replace('<sep>', '')
         return example
 
     # Process data
@@ -89,15 +87,65 @@ def main():
     v_tok_data = v_tok_data.map(addEOS)
     v_tok_data = v_tok_data.map(convertToFeatures, batched=True)
     
-    print("success")
-    #tok_data  = map(add_eos_examples, data)
-    #tok_data = tok_data.map(convert_to_features, batched=True)
-    #print(tok_data[0]["question"])
+    tr_tok_data = tr_tok_data.remove_columns(["question", "chosen"])
+    v_tok_data = v_tok_data.remove_columns(["question", "chosen"])
 
-    #print("Loading data...")
-    #data = load_dataset("json", DATA_PATH)
-    #print("Done.")
-    #[print(data[i]) for i in range(10)]
+
+    columns = ['input_ids', 'decoder_input_ids', 'attention_mask', 'decoder_attention_mask']
+    tr_tok_data.set_format(type='torch', columns=columns)
+    v_tok_data.set_format(type='torch', columns=columns)
+
+    torch.save(tr_tok_data, 'train_data_small.pt')
+    torch.save(v_tok_data, 'valid_data_small.pt')
+
+    print("Test 1 success")
+
+    # In-line initialize DataCollator    
+    class T2TDataCollator():
+        def __call__(self, batch: List) -> Dict[str, torch.Tensor]:
+            """
+            Take a list of samples from a Dataset and collate them into a batch.
+            Returns:
+            A dictionary of tensors
+            """
+            
+            input_ids = torch.stack([example['input_ids'] for example in batch])
+            lm_labels = torch.stack([example['decoder_input_ids'] for example in batch])
+            lm_labels[lm_labels[:, :] == 0] = -100 
+            attention_mask = torch.stack([example['attention_mask'] for example in batch])
+            decoder_attention_mask = torch.stack([example['decoder_attention_mask'] for example in batch])
+            
+            return {
+                'input_ids': input_ids, 
+                'attention_mask': attention_mask,
+                'labels': lm_labels, 
+                'decoder_attention_mask': decoder_attention_mask
+            }
+        
+    training_args = TrainingArguments(output_dir=OUTPUT_DIR, 
+                                  per_device_train_batch_size=4, 
+                                  per_device_eval_batch_size=4,
+                                  gradient_accumulation_steps=16,
+                                  learning_rate=1e-4, 
+                                  num_train_epochs=7,
+                                  logging_steps=100,
+                                  run_name="end2end-questions-generation",
+                                  evaluation_strategy="steps",
+                                  save_steps=500)    
+    
+    logger = logging.getLogger(__name__)
+
+    # Initialize our Trainer
+    trainer = Trainer(
+        model=asker,
+        args=training_args,
+        train_dataset=tr_tok_data,
+        eval_dataset=v_tok_data,
+        data_collator=T2TDataCollator()
+    )
+    print("test 2 success")
+    # Training
+    #trainer.train()
 
 
 if __name__== '__main__':
