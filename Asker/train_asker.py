@@ -108,7 +108,6 @@ def main():
             attention_mask = torch.stack([example['attention_mask'] for example in batch])
             decoder_attention_mask = torch.stack([example['decoder_attention_mask'] for example in batch])
             
-            assert False
 
             return {
                 'input_ids': input_ids, 
