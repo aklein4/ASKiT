@@ -40,6 +40,7 @@ tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 tokenizer.sep_token = '<sep>'
 
 tokenizer.add_tokens(['<sep>'])
+print(len(tokenizer))
 model.resize_token_embeddings(len(tokenizer))
 
 max_input_length =  512
@@ -95,14 +96,15 @@ valid_dataset.set_format(type='torch', columns=columns)
 torch.save(train_dataset, 'train_data1.pt')
 torch.save(valid_dataset, 'valid_data1.pt')
 
+"""
 @dataclass
 class T2TDataCollator():
   def __call__(self, batch: List) -> Dict[str, torch.Tensor]:
-    """
-    Take a list of samples from a Dataset and collate them into a batch.
-    Returns:
-    A dictionary of tensors
-    """
+    
+    #Take a list of samples from a Dataset and collate them into a batch.
+    #Returns:
+    #A dictionary of tensors
+    
     
     input_ids = torch.stack([example['input_ids'] for example in batch])
     lm_labels = torch.stack([example['decoder_input_ids'] for example in batch])
@@ -148,4 +150,5 @@ trainer.train()
 # When training is done, we push the fine-tuned model to the Hub
 trainer.push_to_hub("t5-end2end-questions-generation")
 
-wandb.finish()
+wandb.finish()"""
+
