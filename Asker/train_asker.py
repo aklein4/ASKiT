@@ -37,7 +37,7 @@ def main():
     tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
     
     asker.to(DEVICE)
-    
+
     # Consider '<sep>' token
     tokenizer.sep_token = '<sep>'
     tokenizer.add_tokens(['<sep>'])
@@ -54,13 +54,13 @@ def main():
                                                         max_length=MAX_INPUT_LENGTH, 
                                                         add_special_tokens=True,
                                                         truncation=True, 
-                                                        pad_to_max_length=True)
+                                                        pad_to_max_length=MAX_INPUT_LENGTH)
 
         target_encodings = tokenizer.batch_encode_plus(example_batch['question'], 
                                                         max_length=MAX_TARGET_LENGTH, 
                                                         add_special_tokens=True,
                                                         truncation=True, 
-                                                        pad_to_max_length=True)
+                                                        padding=MAX_TARGET_LENGTH)
                                                         
         encodings = {
             'input_ids': input_encodings['input_ids'], 
@@ -123,8 +123,6 @@ def main():
             }
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR, 
-                                  per_device_train_batch_size=4, 
-                                  per_device_eval_batch_size=4,
                                   gradient_accumulation_steps=16,
                                   learning_rate=1e-4, 
                                   num_train_epochs=7,
