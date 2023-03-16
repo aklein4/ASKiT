@@ -98,8 +98,6 @@ def main():
     torch.save(tr_tok_data, 'train_data_small.pt')
     torch.save(v_tok_data, 'valid_data_small.pt')
 
-    print("Test 1 success")
-
     # In-line initialize DataCollator    
     class T2TDataCollator():
         def __call__(self, batch: List) -> Dict[str, torch.Tensor]:
@@ -143,9 +141,9 @@ def main():
         eval_dataset=v_tok_data,
         data_collator=T2TDataCollator()
     )
-    print("test 2 success")
+
     # Training
-    #trainer.train()
+    trainer.train()
 
 
 if __name__== '__main__':
