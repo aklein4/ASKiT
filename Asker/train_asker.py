@@ -20,11 +20,22 @@ DEVICE = torch.device("cuda")
 DATA_PATH = "generated_data/generated_training_data_small.json"
 
 
+def appendGenPrefix(data):
+    for d in data:
+        d["chosen"] = "generate question: " + d["chosen"].strip()
+
+def removeSepToken(data):
+    for d in data:
+        d["chosen"] = data["chosen"].replace("<sep>", "")
 
 def main():
     with open(DATA_PATH) as f:
         data = json.load(f)
         print("Size: " + str(len(data)))
+        print(data[0])
+        appendGenPrefix(data)
+        print(data[0])
+        removeSepToken(data)
         print(data[0])
     #print("Loading data...")
     #data = load_dataset("json", DATA_PATH)
