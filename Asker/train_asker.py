@@ -45,6 +45,7 @@ def main():
         
         # Consider '<sep>' token
         tokenizer.sep_token = '<sep>'
+        tokenizer.add_tokens(['<sep>'])
         asker.resize_token_embeddings(len(tokenizer))
         print(tokenizer.sep_token_id)
     #print("Loading data...")
