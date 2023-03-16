@@ -48,7 +48,7 @@ def main():
         return example
 
     def convertToFeatures(example_batch):
-
+        # Note pad_to_max_length will be removed, use padding instead if issues arise
         input_encodings = tokenizer.batch_encode_plus(example_batch['chosen'], 
                                                         max_length=MAX_INPUT_LENGTH, 
                                                         add_special_tokens=True,
@@ -83,7 +83,7 @@ def main():
     tok_data = data.map(addGenPrefix)
     tok_data = tok_data.map(addEOS)
     tok_data = tok_data.map(convertToFeatures, batched=True)
-    print(tok_data["train"][0]["chosen"])
+    print(tok_data["validation"][0]["chosen"])
     #tok_data  = map(add_eos_examples, data)
     #tok_data = tok_data.map(convert_to_features, batched=True)
     #print(tok_data[0]["question"])
