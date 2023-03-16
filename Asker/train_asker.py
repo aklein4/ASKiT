@@ -31,7 +31,7 @@ def removeSepToken(data):
 
 
 def main():
-    data = load_dataset("json", data_files=DATA_PATH, split=['train, val'])
+    data = load_dataset("json", data_files=DATA_PATH, split=['train'])
     print('yay')
     return
     # Load tokenizer/asker model
