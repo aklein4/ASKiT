@@ -118,7 +118,7 @@ def main():
             }
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR,
-                                      optim=torch.optim.AdamW,
+                                      optim='adamw_torch',
                                       gradient_accumulation_steps=16,
                                       learning_rate=1e-4,
                                       num_train_epochs=7,
