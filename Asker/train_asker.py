@@ -8,13 +8,6 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5F
 from datasets import load_dataset
 
 ASKER_MODEL = "ThomasSimonini/t5-end2end-question-generation"
-GENERATOR_ARGS = {
-  "max_length": 128,
-  "num_beams": 4,
-  "length_penalty": 1.5,
-  "no_repeat_ngram_size": 3,
-  "early_stopping": True,
-}
 
 
 DEVICE = torch.device("cuda")
@@ -25,7 +18,7 @@ MAX_INPUT_LENGTH = 512
 
 MAX_TARGET_LENGTH = 128
 
-OUTPUT_DIR = "models/"
+OUTPUT_DIR = "models/checkpoints/"
 
 
 def main():
@@ -123,14 +116,13 @@ def main():
             }
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR, 
-                                  gradient_accumulation_steps=16,
-                                  learning_rate=1e-4, 
-                                  num_train_epochs=7,
-                                  logging_steps=100,
-                                  run_name="end2end-questions-generation",
-                                  evaluation_strategy="steps",
-                                  save_steps=500)    
-    
+                                        gradient_accumulation_steps=16,
+                                        learning_rate=1e-4, 
+                                        num_train_epochs=7,
+                                        logging_steps=100,
+                                        evaluation_strategy="steps",
+                                        save_steps=500)    
+        
     logger = logging.getLogger(__name__)
 
     # Initialize our Trainer
