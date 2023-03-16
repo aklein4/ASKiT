@@ -31,11 +31,9 @@ def removeSepToken(data):
 
 
 def main():
-    t_data = load_dataset("json", data_files=DATA_PATH, split='train[:90%]')
+    tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:90%]')
     v_data = load_dataset("json", data_files=DATA_PATH, split='train[90%:]')
-    print(len(t_data))
-    print(len(v_data))
-    return
+
     # Load tokenizer/asker model
     asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
     tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
@@ -83,10 +81,14 @@ def main():
         return example
 
     # Process data
-    tok_data = data.map(addGenPrefix)
-    tok_data = tok_data.map(addEOS)
-    tok_data = tok_data.map(convertToFeatures, batched=True)
-    print(tok_data["validation"][0]["chosen"])
+    tr_tok_data = tr_data.map(addGenPrefix)
+    tr_tok_data = tr_tok_data.map(addEOS)
+    tr_tok_data = tr_tok_data.map(convertToFeatures, batched=True)
+
+    v_tok_data = tr_data.map(addGenPrefix)
+    v_tok_data = tr_tok_data.map(addEOS)
+    v_tok_data = tr_tok_data.map(convertToFeatures, batched=True)
+    
     #tok_data  = map(add_eos_examples, data)
     #tok_data = tok_data.map(convert_to_features, batched=True)
     #print(tok_data[0]["question"])
