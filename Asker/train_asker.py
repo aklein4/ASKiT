@@ -29,7 +29,7 @@ def main():
     asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
     tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
     
-    asker.to(DEVICE)
+    asker = asker.to(DEVICE)
 
     # Consider '<sep>' token
     tokenizer.sep_token = '<sep>'
