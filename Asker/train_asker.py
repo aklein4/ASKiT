@@ -109,12 +109,14 @@ def main():
             decoder_attention_mask = torch.stack([example['decoder_attention_mask'] for example in batch])
             
 
-            return {
+            d = {
                 'input_ids': input_ids, 
                 'attention_mask': attention_mask,
                 'labels': lm_labels, 
                 'decoder_attention_mask': decoder_attention_mask
             }
+            print(d)
+            return d
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR,
                                       optim='adamw_torch',
