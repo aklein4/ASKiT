@@ -26,7 +26,7 @@ def appendGenPrefix(data):
 
 def removeSepToken(data):
     for d in data:
-        d["chosen"] = data["chosen"].replace("<sep>", "")
+        d["chosen"] = d["chosen"].replace("<sep>", "")
 
 def main():
     with open(DATA_PATH) as f:
