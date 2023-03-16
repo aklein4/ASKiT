@@ -70,8 +70,8 @@ def main():
         return encodings
 
     def addEOS(example):
-        example['context'] = example['context'] + " </s>"
-        example['questions'] = example['questions'] + " </s>"
+        example['question'] = example['question'] + " </s>"
+        example['chosen'] = example['chosen'] + " </s>"
         return example
     
     def removeSepTokens(example):
