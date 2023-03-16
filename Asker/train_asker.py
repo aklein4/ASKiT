@@ -35,6 +35,9 @@ def removeSepToken(data):
 
 
 def main():
+    ds = load_dataset("json", data_files=DATA_PATH)
+    print("yay")
+    return
     with open(DATA_PATH) as f:
         data = json.load(f)
 
@@ -78,9 +81,9 @@ def main():
             example['questions'] = example['questions'] + " </s>"
             return example
 
-        tok_data  = data.map(add_eos_examples)
-        tok_data = tok_data.map(convert_to_features, batched=True)
-        print(tok_data[0]["question"])
+        #tok_data  = map(add_eos_examples, data)
+        #tok_data = tok_data.map(convert_to_features, batched=True)
+        #print(tok_data[0]["question"])
 
     #print("Loading data...")
     #data = load_dataset("json", DATA_PATH)
