@@ -28,9 +28,11 @@ def appendGenPrefix(data):
     for d in data:
         d["chosen"] = "generate question: " + d["chosen"].strip()
 
+
 def removeSepToken(data):
     for d in data:
         d["chosen"] = d["chosen"].replace("<sep>", "")
+
 
 def main():
     with open(DATA_PATH) as f:
@@ -47,7 +49,39 @@ def main():
         tokenizer.sep_token = '<sep>'
         tokenizer.add_tokens(['<sep>'])
         asker.resize_token_embeddings(len(tokenizer))
-        print(tokenizer.sep_token_id)
+        
+        # Define some in-line processing functions
+        def convert_to_features(example_batch):
+
+            input_encodings = tokenizer.batch_encode_plus(example_batch['context'], 
+                                                            max_length=MAX_INPUT_LENGTH, 
+                                                            add_special_tokens=True,
+                                                            truncation=True, 
+                                                            pad_to_max_length=True)
+
+            target_encodings = tokenizer.batch_encode_plus(example_batch['questions'], 
+                                                            max_length=MAX_TARGET_LENGTH, 
+                                                            add_special_tokens=True,
+                                                            truncation=True, pad_to_max_length=True)
+                                                            
+            encodings = {
+                'input_ids': input_encodings['input_ids'], 
+                'attention_mask': input_encodings['attention_mask'],
+                'decoder_input_ids': target_encodings['input_ids']
+                ,'decoder_attention_mask': target_encodings['attention_mask']
+            }
+
+            return encodings
+
+        def add_eos_examples(example):
+            example['context'] = example['context'] + " </s>"
+            example['questions'] = example['questions'] + " </s>"
+            return example
+
+        tok_data  = data.map(add_eos_examples)
+        tok_data = tok_data.map(convert_to_features, batched=True)
+        print(tok_data[0]["question"])
+
     #print("Loading data...")
     #data = load_dataset("json", DATA_PATH)
     #print("Done.")
