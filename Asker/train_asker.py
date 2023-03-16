@@ -108,6 +108,8 @@ def main():
             attention_mask = torch.stack([example['attention_mask'] for example in batch])
             decoder_attention_mask = torch.stack([example['decoder_attention_mask'] for example in batch])
             
+            assert False
+            
             return {
                 'input_ids': input_ids, 
                 'attention_mask': attention_mask,
@@ -115,13 +117,14 @@ def main():
                 'decoder_attention_mask': decoder_attention_mask
             }
         
-    training_args = TrainingArguments(output_dir=OUTPUT_DIR, 
-                                        gradient_accumulation_steps=16,
-                                        learning_rate=1e-4, 
-                                        num_train_epochs=7,
-                                        logging_steps=100,
-                                        evaluation_strategy="steps",
-                                        save_steps=500)    
+    training_args = TrainingArguments(output_dir=OUTPUT_DIR,
+                                      optim=torch.optim.adamW,
+                                      gradient_accumulation_steps=16,
+                                      learning_rate=1e-4,
+                                      num_train_epochs=7,
+                                      logging_steps=100,
+                                      evaluation_strategy="steps",
+                                      save_steps=500)    
         
     logger = logging.getLogger(__name__)
 
