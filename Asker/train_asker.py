@@ -6,6 +6,8 @@ import os
 import sys
 from typing import Dict, List, Optional
 from tqdm import tqdm
+from huggingface_hub import notebook_login
+
 
 import dataclasses
 from dataclasses import dataclass, field
@@ -29,6 +31,8 @@ OUTPUT_DIR = "models/checkpoints/"
 
 
 def main():
+    notebook_login()
+
     tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:90%]')
     v_data = load_dataset("json", data_files=DATA_PATH, split='train[90%:]')
 
