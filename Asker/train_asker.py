@@ -31,8 +31,9 @@ def removeSepToken(data):
 
 
 def main():
-    data = load_dataset("json", data_files=DATA_PATH)
-    
+    data = load_dataset("json", data_files=DATA_PATH, split=['train, val'])
+    print('yay')
+    return
     # Load tokenizer/asker model
     asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
     tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
