@@ -1,12 +1,4 @@
-
 import torch
-
-import sys
-sys.path.append('../Asker')
-from searcher import Searcher
-from agent import Agent
-from environment import Environment
-
 import json
 import random
 
