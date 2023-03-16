@@ -36,7 +36,7 @@ def removeSepToken(data):
 
 def main():
     ds = load_dataset("json", data_files=DATA_PATH)
-    print(ds[0])
+    print(ds['train'][0])
     return
     with open(DATA_PATH) as f:
         data = json.load(f)
