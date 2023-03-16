@@ -3,6 +3,7 @@ import json
 import random
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5ForConditionalGeneration, T5TokenizerFast, T5Tokenizer, EvalPrediction, Trainer, TrainingArguments
+from datasets import load_dataset
 
 ASKER_MODEL = "ThomasSimonini/t5-end2end-question-generation"
 GENERATOR_ARGS = {
