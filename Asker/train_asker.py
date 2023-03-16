@@ -22,10 +22,14 @@ DATA_PATH = "ASKiT/Asker/generated_data/generated_training_data_small.json"
 
 
 def main():
-    print("Loading data...")
-    data = load_dataset("json", DATA_PATH)
-    print("Done.")
-    [print(data[i]) for i in range(10)]
+    with open(DATA_PATH) as f:
+        data = json.load(f)
+        print("Size: " + str(len(data)))
+        print(data[0])
+    #print("Loading data...")
+    #data = load_dataset("json", DATA_PATH)
+    #print("Done.")
+    #[print(data[i]) for i in range(10)]
 
 
 if __name__== '__main__':
