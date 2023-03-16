@@ -6,6 +6,7 @@ import os
 import sys
 from typing import Dict, List, Optional
 from tqdm import tqdm
+
 import dataclasses
 from dataclasses import dataclass, field
 
@@ -102,6 +103,7 @@ def main():
     torch.save(v_tok_data, 'valid_data_small.pt')
 
     # In-line initialize DataCollator    
+    @dataclass
     class T2TDataCollator():
         def __call__(self, batch: List) -> Dict[str, torch.Tensor]:
             """
