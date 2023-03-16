@@ -54,13 +54,13 @@ def main():
                                                         max_length=MAX_INPUT_LENGTH, 
                                                         add_special_tokens=True,
                                                         truncation=True, 
-                                                        pad_to_max_length=MAX_INPUT_LENGTH)
+                                                        padding='max_length')
 
         target_encodings = tokenizer.batch_encode_plus(example_batch['question'], 
                                                         max_length=MAX_TARGET_LENGTH, 
                                                         add_special_tokens=True,
                                                         truncation=True, 
-                                                        padding=MAX_TARGET_LENGTH)
+                                                        padding='max_length')
                                                         
         encodings = {
             'input_ids': input_encodings['input_ids'], 
