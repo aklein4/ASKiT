@@ -37,7 +37,7 @@ def main():
     tokenizer = T5TokenizerFast.from_pretrained("t5-base", model_max_length=512)
     
     asker.to(DEVICE)
-    tokenizer.to(DEVICE)
+    
     # Consider '<sep>' token
     tokenizer.sep_token = '<sep>'
     tokenizer.add_tokens(['<sep>'])
