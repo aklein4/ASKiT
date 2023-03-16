@@ -7,6 +7,7 @@ import sys
 from typing import Dict, List, Optional
 from tqdm import tqdm
 from huggingface_hub import login
+import wandb
 
 
 import dataclasses
@@ -31,8 +32,8 @@ OUTPUT_DIR = "models/checkpoints/"
 
 
 def main():
+    wandb.login()
     login('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')
-
     tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:90%]')
     v_data = load_dataset("json", data_files=DATA_PATH, split='train[90%:]')
 
@@ -139,8 +140,12 @@ def main():
                                       learning_rate=1e-4,
                                       num_train_epochs=7,
                                       logging_steps=100,
+                                      run_name="end2end-questions-generation",
                                       evaluation_strategy="steps",
-                                      save_steps=500)    
+                                      save_steps=500,
+                                      report_to="wandb",
+                                      push_to_hub=True,
+                                      push_to_hub_model_id="t5-end2end-questions-generation")    
         
     logger = logging.getLogger(__name__)
 
@@ -155,6 +160,9 @@ def main():
 
     # Training
     trainer.train()
+
+    trainer.push_to_hub("t5-end2end-questions-generation")
+    wandb.finish()
 
 
 if __name__== '__main__':
