@@ -1,6 +1,7 @@
 import torch
 import json
 import random
+from typing import Dict, List, Optional
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5ForConditionalGeneration, T5TokenizerFast, T5Tokenizer, EvalPrediction, Trainer, TrainingArguments
 from datasets import load_dataset
@@ -19,6 +20,9 @@ DEVICE = torch.device("cuda")
 
 DATA_PATH = "generated_data/generated_training_data_small.json"
 
+MAX_INPUT_LENGTH = 512
+
+MAX_TARGET_LENGTH = 128
 
 def appendGenPrefix(data):
     for d in data:
@@ -31,12 +35,18 @@ def removeSepToken(data):
 def main():
     with open(DATA_PATH) as f:
         data = json.load(f)
-        print("Size: " + str(len(data)))
-        print(data[0])
+
+        # Process data
         appendGenPrefix(data)
-        print(data[0])
-        removeSepToken(data)
-        print(data[0])
+
+        # Load tokenizer/asker model
+        tokenizer = T5TokenizerFast.from_pretrained(ASKER_MODEL, model_max_length=512)
+        asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
+        
+        # Consider '<sep>' token
+        tokenizer.sep_token = '<sep>'
+        asker.resize_token_embeddings(len(tokenizer))
+        print(tokenizer.sep_token_id)
     #print("Loading data...")
     #data = load_dataset("json", DATA_PATH)
     #print("Done.")
