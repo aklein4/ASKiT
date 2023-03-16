@@ -76,10 +76,12 @@ def main():
     # Process data
     tr_tok_data = tr_data.map(addGenPrefix)
     tr_tok_data = tr_tok_data.map(addEOS)
+    tr_tok_data = tr_tok_data.map(removeSepTokens)
     tr_tok_data = tr_tok_data.map(convertToFeatures, batched=True)
 
     v_tok_data = v_data.map(addGenPrefix)
     v_tok_data = v_tok_data.map(addEOS)
+    v_tok_data = v_tok_data.map(removeSepTokens)
     v_tok_data = v_tok_data.map(convertToFeatures, batched=True)
     
     tr_tok_data = tr_tok_data.remove_columns(["question", "chosen"])
@@ -115,7 +117,6 @@ def main():
                 'labels': lm_labels, 
                 'decoder_attention_mask': decoder_attention_mask
             }
-            print(d)
             return d
         
     training_args = TrainingArguments(output_dir=OUTPUT_DIR,
