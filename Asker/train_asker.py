@@ -17,7 +17,7 @@ GENERATOR_ARGS = {
 
 DEVICE = torch.device("cuda")
 
-DATA_PATH = "ASKiT/Asker/generated_data/generated_training_data_small.json"
+DATA_PATH = "generated_data/generated_training_data_small.json"
 
 
 
