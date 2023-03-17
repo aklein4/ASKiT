@@ -19,8 +19,8 @@ model_checkpoint = "t5-base"
 
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
-tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:90%]')
-v_data = load_dataset("json", data_files=DATA_PATH, split='train[90%:]')
+tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:2%]')
+v_data = load_dataset("json", data_files=DATA_PATH, split='train[2%:3%]')
 
 def addGenPrefix(example):
         example['chosen'] = "generate question: " + example['chosen'].strip()
