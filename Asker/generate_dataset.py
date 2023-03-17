@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 import sys
 
-sys.path.append("../Asker")
+sys.path.append("../Agent/")
 from searcher import Searcher
 from agent import Agent
 from environment import Environment
