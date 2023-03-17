@@ -142,7 +142,7 @@ def model_init():
     return AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)
 
 trainer = Seq2SeqTrainer(
-    model_init=model_init.to("cuda"),
+    model_init=model_init,
     args=args,
     train_dataset=tr_tok_data,
     eval_dataset=v_tok_data,
