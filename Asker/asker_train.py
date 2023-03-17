@@ -1,6 +1,6 @@
 import transformers
 from datasets import load_dataset, load_metric
-
+from pynvml import *
 import nltk
 nltk.download('punkt')
 import string
@@ -15,12 +15,28 @@ OUTPUT_DIR = "modelz"
 
 DATA_PATH = "generated_data/generated_training_data_small.json"
 
+
+def print_gpu_utilization():
+    nvmlInit()
+    handle = nvmlDeviceGetHandleByIndex(0)
+    info = nvmlDeviceGetMemoryInfo(handle)
+    print(f"GPU memory occupied: {info.used//1024**2} MB.")
+
+
+def print_summary(result):
+    print(f"Time: {result.metrics['train_runtime']:.2f}")
+    print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
+    print_gpu_utilization()
+
 model_checkpoint = "t5-base"
 
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:2%]')
 v_data = load_dataset("json", data_files=DATA_PATH, split='train[2%:3%]')
+
+print("Initializing... 1.")
+print_gpu_utilization()
 
 def addGenPrefix(example):
         example['chosen'] = "generate question: " + example['chosen'].strip()
@@ -64,8 +80,10 @@ def preprocess_data(examples):
 tr_tok_data = e_tr_data.map(preprocess_data, batched=True)
 v_tok_data = e_v_data.map(preprocess_data, batched=True)
 
-batch_size = 8
-model_name = "t5-base-medium-title-generation"
+print("Data processed...2.")
+print_gpu_utilization()
+
+batch_size = 4
 model_dir = OUTPUT_DIR
 args = Seq2SeqTrainingArguments(
     model_dir,
@@ -124,7 +142,7 @@ def model_init():
     return AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint)
 
 trainer = Seq2SeqTrainer(
-    model_init=model_init,
+    model_init=model_init.to("cuda"),
     args=args,
     train_dataset=tr_tok_data,
     eval_dataset=v_tok_data,
@@ -133,7 +151,9 @@ trainer = Seq2SeqTrainer(
     compute_metrics=compute_metrics
 )
 
-print("Training")
+
+print("About to train...")
+print_gpu_utilization()
 trainer.train()
 
 trainer.save_model()
