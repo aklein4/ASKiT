@@ -1,0 +1,42 @@
+{
+    "os": "Windows-10-10.0.19044-SP0",
+    "python": "3.8.16",
+    "heartbeatAt": "2023-03-16T10:47:09.985582",
+    "startedAt": "2023-03-16T10:47:09.877338",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "run_qa_train.py",
+    "codePath": "Asker\\run_qa_train.py",
+    "git": {
+        "remote": "https://github.com/aklein4/ASKiT.git",
+        "commit": "5c8b13ff5428561680e077644427f99186450da9"
+    },
+    "email": "mattjv22@stanford.edu",
+    "root": "C:/Users/matth/OneDrive/Documents/224n_proj/ASKiT",
+    "host": "DESKTOP-CDOC3TK",
+    "username": "matth",
+    "executable": "C:\\Users\\matth\\anaconda3\\envs\\local_nmt\\python.exe",
+    "cpu_count": 4,
+    "cpu_count_logical": 8,
+    "cpu_freq": {
+        "current": 1298.0,
+        "min": 0.0,
+        "max": 1498.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1298.0,
+            "min": 0.0,
+            "max": 1498.0
+        }
+    ],
+    "disk": {
+        "total": 952.7833633422852,
+        "used": 358.81203842163086
+    },
+    "memory": {
+        "total": 15.685367584228516
+    }
+}

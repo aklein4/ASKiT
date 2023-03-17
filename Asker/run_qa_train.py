@@ -28,9 +28,8 @@ from transformers import (
     TrainingArguments)
 import wandb
 
-OUTPUT_DIR = "models/testpoint"
+OUTPUT_DIR = "new_models/testpoint"
 
-wandb.login()
 login('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')
 
 checkpoint = "t5-base"
@@ -69,12 +68,8 @@ training_args = TrainingArguments(output_dir=OUTPUT_DIR,
                                   learning_rate=1e-4, 
                                   num_train_epochs=7,
                                   logging_steps=100,
-                                  run_name="end2end-questions-generation",
                                   evaluation_strategy="steps",
-                                  save_steps=500,
-                                  report_to="wandb",
-                                  push_to_hub=True,
-                                  push_to_hub_model_id="t5-end2end-questions-generation")
+                                  save_steps=500)
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +86,5 @@ trainer = Trainer(
 trainer.train()
 
 # When training is done, we push the fine-tuned model to the Hub
-trainer.push_to_hub("t5-end2end-questions-generation")
 
-wandb.finish()
 
