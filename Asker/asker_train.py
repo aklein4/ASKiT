@@ -1,4 +1,5 @@
 import transformers
+import datasets
 from datasets import load_dataset, load_metric
 from pynvml import *
 import nltk
@@ -16,6 +17,7 @@ OUTPUT_DIR = "modelz"
 DATA_PATH = "generated_data/generated_training_data_small.json"
 
 
+# Debugging Functions
 def print_gpu_utilization():
     nvmlInit()
     handle = nvmlDeviceGetHandleByIndex(0)
@@ -28,16 +30,18 @@ def print_summary(result):
     print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
     print_gpu_utilization()
 
+# Load model and tokenizer
 model_checkpoint = "t5-base"
-
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
+# Load data
 tr_data = load_dataset("json", data_files=DATA_PATH, split='train[:2%]')
 v_data = load_dataset("json", data_files=DATA_PATH, split='train[2%:3%]')
 
 print("Initializing... 1.")
 print_gpu_utilization()
 
+# Preprocessing Functions
 def addGenPrefix(example):
         example['chosen'] = "generate question: " + example['chosen'].strip()
         return example
@@ -67,11 +71,11 @@ e_v_data = e_v_data.map(addEOS)
 
 
 def preprocess_data(examples):
-    model_inputs = tokenizer(examples["chosen"], max_length=MAX_INPUT_LENGTH, truncation=True)
+    model_inputs = tokenizer(examples["chosen"], max_length=MAX_INPUT_LENGTH, truncation=True, return_tensors='pt')
 
     #with tokenizer.as_target_tokenizer():
     labels = tokenizer(examples["question"], max_length=MAX_TARGET_LENGTH, text_target = examples['question'],
-                        truncation=True)
+                        truncation=True, return_tensors='pt')
 
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
@@ -112,11 +116,11 @@ metric = load_metric("rouge")
 
 def compute_metrics(eval_pred):
     predictions, labels = eval_pred
-    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True, return_tensors='pt')
     
     # Replace -100 in the labels as we can't decode them.
     labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True, return_tensors='pt')
     
     # Rouge expects a newline after each sentence
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip()))
