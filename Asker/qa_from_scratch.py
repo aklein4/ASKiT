@@ -28,9 +28,8 @@ from transformers import (
     TrainingArguments)
 import wandb
 
-OUTPUT_DIR = "models/testpoint"
+OUTPUT_DIR = "new_models/testpoint"
 
-wandb.login()
 login('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')
 raw_dataset = load_dataset("squad_modified_for_t5_qg.py")
 checkpoint = "t5-base"
@@ -149,6 +148,5 @@ trainer.train()
 
 # When training is done, we push the fine-tuned model to the Hub
 trainer.push_to_hub("t5-end2end-questions-generation")
-
-wandb.finish()"""
+"""
 
