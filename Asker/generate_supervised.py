@@ -2,7 +2,7 @@ from datasets import load_dataset, load_metric, list_metrics
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5ForConditionalGeneration, T5TokenizerFast, T5Tokenizer, EvalPrediction, Trainer, TrainingArguments
 
 from tqdm import tqdm
-
+import torch
 from typing import Dict, List, Optional
 
 import dataclasses
@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import sys
-sys.path.append('../Asker')
+sys.path.append("../Agent/")
 from searcher import Searcher
 from agent import Agent
 from environment import Environment
