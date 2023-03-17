@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import sys
-sys.path.append('../Agent')
+sys.path.append('../Asker')
 from searcher import Searcher
 from agent import Agent
 from environment import Environment
@@ -24,7 +24,7 @@ import random
 
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
-ASKER_MODEL = "ThomasSimonini/t5-end2end-question-generation"
+ASKER_MODEL = "../../models/checkpoint-1500/pytorch_model.bin"
 GENERATOR_ARGS = {
   "max_length": 128,
   "num_beams": 4,
@@ -84,17 +84,18 @@ def main():
 
             target_evidence = evidence[i]
 
-            input_string = "generate questions: " + question + " " + curr_evidence + " </s>"
+            input_string = "generate question: " + curr_evidence + " </s>"
             input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
             res = example_asker.generate(input_ids, **GENERATOR_ARGS)
             output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
-            output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"
+            #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"
             
             print("\n-----------------")
             print('\n', question)
             print('\n', curr_evidence)
-            print('\n', target_evidence)
+            #print('\n', target_evidence)
             print('\n', output)
+            return
 
 if __name__ == "__main__":
     main()
