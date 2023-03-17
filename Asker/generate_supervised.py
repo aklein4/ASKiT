@@ -38,8 +38,8 @@ INPUT_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 OUTPUT_DATA = ""
 
-SEARCHER_CHECKPOINT = "../Agent/checkpoints/searcher-p"
-AGENT_CHECKPOINT = "../Agent/checkpoints/agent_0"
+AGENT_CHECKPOINT = "../../checkpoints/agent-pre"
+SEARCHER_CHECKPOINT = "../../checkpoints/searcher-p"
 
 STATES_PER = 1
 
