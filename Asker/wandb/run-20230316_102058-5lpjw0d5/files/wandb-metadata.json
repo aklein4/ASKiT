@@ -1,0 +1,85 @@
+{
+    "os": "Linux-4.19.0-23-cloud-amd64-x86_64-with-debian-10.13",
+    "python": "3.7.12",
+    "heartbeatAt": "2023-03-16T10:20:59.498349",
+    "startedAt": "2023-03-16T10:20:58.929709",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "train_asker.py",
+    "codePath": "Asker/train_asker.py",
+    "git": {
+        "remote": "git@github.com:aklein4/ASKiT.git",
+        "commit": "dc5f593f39dfa7eb91daf5e91bc4922ed1d694d7"
+    },
+    "email": "mattjv22@stanford.edu",
+    "root": "/home/cs224nvm1/ASKiT",
+    "host": "instance-2",
+    "username": "cs224nvm1",
+    "executable": "/opt/conda/bin/python",
+    "cpu_count": 4,
+    "cpu_count_logical": 8,
+    "cpu_freq": {
+        "current": 2300.0,
+        "min": 0.0,
+        "max": 0.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2300.0,
+            "min": 0.0,
+            "max": 0.0
+        }
+    ],
+    "disk": {
+        "total": 48.97825241088867,
+        "used": 31.480987548828125
+    },
+    "gpu": "Tesla K80",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "Tesla K80",
+            "memory_total": 11997020160
+        }
+    ],
+    "memory": {
+        "total": 29.44622802734375
+    }
+}
