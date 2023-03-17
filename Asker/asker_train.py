@@ -71,11 +71,11 @@ e_v_data = e_v_data.map(addEOS)
 
 
 def preprocess_data(examples):
-    model_inputs = tokenizer(examples["chosen"], max_length=MAX_INPUT_LENGTH, truncation=True, return_tensors='pt')
+    model_inputs = tokenizer(examples["chosen"], max_length=MAX_INPUT_LENGTH, truncation=True)
 
     #with tokenizer.as_target_tokenizer():
     labels = tokenizer(examples["question"], max_length=MAX_TARGET_LENGTH, text_target = examples['question'],
-                        truncation=True, return_tensors='pt')
+                        truncation=True)
 
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
@@ -84,9 +84,10 @@ def preprocess_data(examples):
 tr_tok_data = e_tr_data.map(preprocess_data, batched=True)
 v_tok_data = e_v_data.map(preprocess_data, batched=True)
 
-print("Data processed...2.")
-print_gpu_utilization()
+print(tr_tok_data[0])
 
+
+"""
 batch_size = 4
 model_dir = OUTPUT_DIR
 args = Seq2SeqTrainingArguments(
@@ -116,11 +117,11 @@ metric = load_metric("rouge")
 
 def compute_metrics(eval_pred):
     predictions, labels = eval_pred
-    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True, return_tensors='pt')
+    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
     
     # Replace -100 in the labels as we can't decode them.
     labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True, return_tensors='pt')
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
     
     # Rouge expects a newline after each sentence
     decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip()))
@@ -155,9 +156,9 @@ trainer = Seq2SeqTrainer(
     compute_metrics=compute_metrics
 )
 
-
+print(tr_tok_data[0])
 print("About to train...")
 print_gpu_utilization()
 trainer.train()
 
-trainer.save_model()
+trainer.save_model()"""
