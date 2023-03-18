@@ -24,17 +24,17 @@ import random
 
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
-ASKER_MODEL = "../../models/checkpoint-1500/pytorch_model.bin"
+ASKER_MODEL = "matthv/first_t5-end2end-questions-generation"
 GENERATOR_ARGS = {
   "max_length": 128,
-  "num_beams": 4,
+  "num_beams": 8,
   "length_penalty": 1.5,
   "no_repeat_ngram_size": 3,
   "early_stopping": True,
 }
 
-INPUT_DATA = "../local_data/hotpot_data/val.json"
-INPUT_ENCODINGS = "../local_data/corpus_encodings/val.pt"
+INPUT_DATA = "../../local_data/hotpot_data/val.json"
+INPUT_ENCODINGS = "../../local_data/corpus_encodings/val.pt"
 
 OUTPUT_DATA = ""
 
@@ -67,9 +67,9 @@ def main():
         data_end=10
     )
 
-    states = env.evaluate(True)
+    # states = env.evaluate(True)
 
-    data = []
+    # data = []
 
     for s in states:
         question, evidence, = s
@@ -83,19 +83,20 @@ def main():
                 curr_evidence += c + " "
 
             target_evidence = evidence[i]
-
-            input_string = "generate question: " + curr_evidence + " </s>"
+            chosen = env.greedyRollout(i, "", env.data[i]["raw_corpus"], env.corpus[i].float())
+            amalg = '<sep>'.join(chosen)
+            input_string = "generate question: " + amalg + " </s>"
             input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
             res = example_asker.generate(input_ids, **GENERATOR_ARGS)
             output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
             #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"
             
             print("\n-----------------")
-            print('\n', question)
-            print('\n', curr_evidence)
-            #print('\n', target_evidence)
-            print('\n', output)
-            return
+            print('Original Question\n', question)
+            print('Chosen Evidence\n', chosen)
+           # print('Target Evidence\n', target_evidence)
+            print('New Question\n', output)
+            
 
 if __name__ == "__main__":
     main()
