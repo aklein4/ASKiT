@@ -1,5 +1,7 @@
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 import json
 import random
@@ -435,3 +437,77 @@ class Environment:
 
         # return the chosen evidence that was chosen during this rollout
         return chosen
+
+
+    def sampleRollout(self, question_id):
+        # finish a greedy rollout from the current state
+
+        log_prob = 0
+        num_actions += 1
+
+        evidence = ""
+        avail_text = self.data[question_id]["raw_evidence"].copy()
+        avail_encodings = self.corpus[avail_encodings].clone()
+
+        # get the question using the id
+        question = self.data[question_id]["question"]
+
+        # make sure that we don't modify the original text corpus
+        avail_text = avail_text.copy()
+        
+        # fill chossen with only the evidence that this function chooses
+        chosen = []
+
+        # go until end
+        with torch.no_grad():
+            while True:
+                
+                # use search to get the top k actions
+                scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
+                _, top_inds = torch.topk(scores, self.top_k-1)
+
+                # convert from indices to strings
+                action_set = [None] # actions as strings
+                action_inds = [None] # actions as indices
+                for i in range(top_inds.shape[0]):
+                    action_inds += [top_inds[i]]
+                    action_set += [avail_text[top_inds[i]]]
+
+                # use the agent to get the policy scores
+                policy = self.agent.forward(([question], [evidence], [action_set[1:]]), debug=True)[0]
+                assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
+                
+                policy = F.softmax(policy, dim=0)
+                action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+
+                log_prob += torch.log(policy[action])
+                num_actions += 1    
+                
+                if action not in list(range(len(action_set))):
+                    print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
+                    action = 0
+
+                # stop if we submit, reach max depth, or run out of evidence needed for full stack
+                if action == 0 or len(chosen) == MAX_DEPTH or len(avail_text)-1 < self.top_k:
+                    break
+
+                # continue sampling rollout
+                else:
+
+                    # add the chosen action to the running evidence and chosen
+                    new_ev_str = action_set[action]
+                    chosen.append(new_ev_str)
+                    evidence += new_ev_str
+                
+                    # remove the chosen action from the available evidence
+                    avail_text.pop(action_inds[action])    
+                    avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+                    assert len(avail_text) == avail_encodings.shape[0]
+
+        
+        # clear cache if memory is getting full
+        if get_mem_use() >= MEM_THRESH:
+            torch.cuda.empty_cache()
+
+        # return the chosen evidence that was chosen during this rollout
+        return self.getF1(question_id, chosen), log_prob, num_actions
