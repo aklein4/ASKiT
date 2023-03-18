@@ -93,9 +93,10 @@ def main():
     # create a list of the sizes, here multiplied by 10 for scale
     s = [10*c[(xx,yy)] for xx,yy in zip(x,y)]
 
-    plt.clf()
     plt.scatter(score_ranks, prob_ranks, s=s)
     plt.savefig("./logs/rank_correlation.png")
+            
+
 
 
 if __name__ == "__main__":
