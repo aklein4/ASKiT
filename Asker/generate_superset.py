@@ -44,7 +44,7 @@ def main():
     data_list = []
     with torch.no_grad():
         #with tqdm(0, len(t_data)) as p:
-        for i in range(len(data)):
+        for i in tqdm(range(len(data))):
             all_evidence = data[i]["chosen"].split('<sep>')
             for j in range(1, len(all_evidence) - 1):
                 ques_ev = data[i]['question'] + ' '.join(all_evidence[:j]) + " </s>"

@@ -1,0 +1,14 @@
+[
+    {
+        "question_ev": "Hoku's song \"Another Dumb Blond\" was from the film Snow Day by which company? Another Dumb Blonde, \"Another Dumb Blonde\" is the debut single from American singer Hoku. </s>",
+        "inverted_ques": [
+            "Hoku is best known for her 2000 hit single \"Another Dumb Blonde\", originally featured on the soundtrack to the 2000 Nickelodeon theatrical film \"Snow Day\", and was released as a single from the soundtrack on January 18, 2000 by Geffen Records and Interscope Records?"
+        ]
+    },
+    {
+        "question_ev": "Hoku's song \"Another Dumb Blond\" was from the film Snow Day by which company? Another Dumb Blonde, \"Another Dumb Blonde\" is the debut single from American singer Hoku.  Hoku, Hoku Ho Clements (born Hoku Christian Ho, June 10, 1981), known mononymously as Hoku, is an American singer. </s>",
+        "inverted_ques": [
+            "Another Dumb Blonde was originally featured on the soundtrack to the 2000 Nickelodeon theatrical film \"Snow Day\", and was released as a single from the soundtrack on January 18, 2000 by Geffen Records and Interscope Records, on which date?"
+        ]
+    }
+]
