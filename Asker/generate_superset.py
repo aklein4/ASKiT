@@ -46,15 +46,14 @@ def main():
     with torch.no_grad():
         #with tqdm(0, len(t_data)) as p:
         for i in range(len(data)):
-            all_evidence = data["chosen"].split('<sep>')
+            all_evidence = data[i]["chosen"].split('<sep>')
             for j in range(1, len(all_evidence) - 1):
-                ques_ev = data['question'] + ' '.join(all_evidence[:j]) + " </s>"
+                ques_ev = data[i]['question'] + ' '.join(all_evidence[:j]) + " </s>"
                 to_invert = "generate question: " + ' '.join(all_evidence[j + 1:]) + " </s>"
                 input_ids = tokenizer.encode(to_invert, return_tensors="pt", truncation=True)
                 res = asker.generate(input_ids, **GENERATOR_ARGS)
                 inverted_question = tokenizer.batch_decode(res, skip_special_tokens=True)
                 data_list.append({"question_ev": ques_ev, "inverted_ques": inverted_question})
-
             if i % 100 == 0: 
                 print("Gone through " + str(i) + " / " + str(len(data)) + " examples.")   
 
