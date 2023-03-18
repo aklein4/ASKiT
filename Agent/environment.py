@@ -443,11 +443,11 @@ class Environment:
         # finish a greedy rollout from the current state
 
         log_prob = 0
-        num_actions += 1
+        num_actions = 0
 
         evidence = ""
-        avail_text = self.data[question_id]["raw_evidence"].copy()
-        avail_encodings = self.corpus[avail_encodings].clone()
+        avail_text = self.data[question_id]["raw_corpus"].copy()
+        avail_encodings = self.corpus[question_id].float()
 
         # get the question using the id
         question = self.data[question_id]["question"]
