@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import sys
-sys.path.append('../Asker')
+sys.path.append('../Agent')
 from searcher import Searcher
 from agent import Agent
 from environment import Environment
@@ -24,7 +24,7 @@ import random
 
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
-ASKER_MODEL = "../../models/checkpoint-1500/pytorch_model.bin"
+ASKER_MODEL = "matthv/first_t5-end2end-questions-generation"
 GENERATOR_ARGS = {
   "max_length": 128,
   "num_beams": 4,
@@ -33,8 +33,8 @@ GENERATOR_ARGS = {
   "early_stopping": True,
 }
 
-INPUT_DATA = "../local_data/hotpot_data/val.json"
-INPUT_ENCODINGS = "../local_data/corpus_encodings/val.pt"
+INPUT_DATA = "../../local_data/hotpot_data/val.json"
+INPUT_ENCODINGS = "../../local_data/corpus_encodings/val.pt"
 
 OUTPUT_DATA = ""
 
