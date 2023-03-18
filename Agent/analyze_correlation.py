@@ -11,6 +11,7 @@ from tqdm import tqdm
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 import matplotlib.pyplot as plt
+from collections import Counter
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
@@ -84,7 +85,15 @@ def main():
     plt.scatter(overall_f1s, normed_probs)
     plt.savefig("./logs/correlation.png")
 
-    plt.scatter(score_ranks, prob_ranks)
+    x = score_ranks
+    y = prob_ranks
+
+    # count the occurrences of each point
+    c = Counter(zip(x,y))
+    # create a list of the sizes, here multiplied by 10 for scale
+    s = [10*c[(xx,yy)] for xx,yy in zip(x,y)]
+
+    plt.scatter(score_ranks, prob_ranks, s=s)
     plt.savefig("./logs/rank_correlation.png")
             
 
