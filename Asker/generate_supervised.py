@@ -2,7 +2,7 @@ from datasets import load_dataset, load_metric, list_metrics
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollator, T5ForConditionalGeneration, T5TokenizerFast, T5Tokenizer, EvalPrediction, Trainer, TrainingArguments
 
 from tqdm import tqdm
-import torch
+
 from typing import Dict, List, Optional
 
 import dataclasses
@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import sys
-sys.path.append("../Agent/")
+sys.path.append('../Asker')
 from searcher import Searcher
 from agent import Agent
 from environment import Environment
@@ -24,17 +24,17 @@ import random
 
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
-ASKER_MODEL = "matthv/first_t5-end2end-questions-generation"
+ASKER_MODEL = "../../models/checkpoint-1500/pytorch_model.bin"
 GENERATOR_ARGS = {
   "max_length": 128,
-  "num_beams": 8,
+  "num_beams": 4,
   "length_penalty": 1.5,
   "no_repeat_ngram_size": 3,
   "early_stopping": True,
 }
 
-INPUT_DATA = "../../local_data/hotpot_data/val.json"
-INPUT_ENCODINGS = "../../local_data/corpus_encodings/val.pt"
+INPUT_DATA = "../local_data/hotpot_data/val.json"
+INPUT_ENCODINGS = "../local_data/corpus_encodings/val.pt"
 
 OUTPUT_DATA = ""
 
@@ -67,36 +67,20 @@ def main():
         data_end=10
     )
 
-    # states = env.evaluate(True)
-
-    # data = []
-
-    for s in states:
-        question, evidence, = s
-
-        n_evidence = random.sample(list(range(len(evidence))), k=min(len(evidence), STATES_PER))
-
-        for i in n_evidence:
-            
-            curr_evidence = ""
-            for c in evidence[:i]:
-                curr_evidence += c + " "
-
-            target_evidence = evidence[i]
-            chosen = env.greedyRollout(i, "", env.data[i]["raw_corpus"], env.corpus[i].float())
-            amalg = '<sep>'.join(chosen)
-            input_string = "generate question: " + amalg + " </s>"
-            input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
-            res = example_asker.generate(input_ids, **GENERATOR_ARGS)
-            output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
-            #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"
-            
-            print("\n-----------------")
-            print('Original Question\n', question)
-            print('Chosen Evidence\n', chosen)
-           # print('Target Evidence\n', target_evidence)
-            print('New Question\n', output)
-            
+    for i in range(len(env.data)):
+        question = env.data[i]['question']
+        chosen = env.greedyRollout(i, "", env.data[i]["raw_corpus"], env.corpus[i].float())
+        amalg = '<sep>'.join(chosen)
+        input_string = "generate question: " + amalg + " </s>"
+        input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
+        res = example_asker.generate(input_ids, **GENERATOR_ARGS)
+        output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
+        #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"        
+        print("\n-----------------")
+        print('Original Question\n', question)
+        print('Chosen Evidence\n', chosen)
+        # print('Target Evidence\n', target_evidence)
+        print('New Question\n', output)
 
 if __name__ == "__main__":
     main()
