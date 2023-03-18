@@ -47,6 +47,9 @@ def main():
     normed_probs = []
     overall_corr = None
 
+    score_ranks = []
+    prob_ranks = []
+
     with tqdm(range(env.size)) as pbar:
         for q_id in pbar:
             f1s, log_probs = [], []
@@ -69,10 +72,20 @@ def main():
             num_sampled += 1
             tot_corr += spearmanr(a=np.array(f1s), b=np.array(log_probs))[0] 
 
+            sorted_f1s = sorted(f1s, reverse=True)
+            sorted_probs = sorted(log_probs, reverse=True)
+            for f1 in f1s:
+                score_ranks.append(sorted_f1s.index(f1) + 1)
+            for prob in log_probs:
+                prob_ranks.append(sorted_probs.index(prob) + 1)
+
             pbar.set_postfix({"avg": tot_corr/num_sampled, "overall": overall_corr})
 
     plt.scatter(overall_f1s, normed_probs)
     plt.savefig("./logs/correlation.png")
+
+    plt.scatter(score_ranks, prob_ranks)
+    plt.savefig("./logs/rank_correlation.png")
             
 
 
