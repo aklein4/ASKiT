@@ -29,7 +29,6 @@ DEVICE = torch.device("cuda")
 def main():
     #Initialize tokenizer and asker
     tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
-    tokenizer = tokenizer.to("cuda")
     asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
     asker = asker.to("cuda")
 
@@ -50,7 +49,7 @@ def main():
             for j in range(1, len(all_evidence) - 1):
                 ques_ev = data['question'] + ' '.join(all_evidence[:j]) + " </s>"
                 to_invert = "generate question: " + ' '.join(all_evidence[j + 1:]) + " </s>"
-                input_ids = tokenizer.encode(to_invert, return_tensors="pt", truncation=True)
+                input_ids = tokenizer.encode(to_invert, return_tensors="pt", truncation=True).to("cuda")
                 res = asker.generate(input_ids, **GENERATOR_ARGS)
                 inverted_question = tokenizer.batch_decode(res, skip_special_tokens=True)
                 data_list.append({"question_ev": ques_ev, "inverted_ques": inverted_question})
