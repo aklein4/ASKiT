@@ -97,6 +97,7 @@ def main():
     plt.scatter(score_ranks, prob_ranks, s=s)
     plt.savefig("./logs/rank_correlation.png")
 
+    torch.save((score_ranks, prob_ranks), "./logs/rank_data.pt")
 
 if __name__ == "__main__":
     main()
