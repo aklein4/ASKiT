@@ -5,13 +5,10 @@ import torch.nn.functional as F
 
 from searcher import Searcher
 from agent import Agent
-from environment import Environment
 
 from tqdm import tqdm
 import numpy as np
-from scipy.stats import pearsonr, spearmanr
-import matplotlib.pyplot as plt
-from collections import Counter
+import json
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
@@ -19,84 +16,54 @@ AGENT_FILE = "checkpoints/onehot_ppo_56"
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-DATA_FILE = "../local_data/hotpot_data/val.json"
-ENCODINGS_FILE = "../local_data/corpus_encodings/val.pt"
+DATA_FILE = "../local_data/hotpot/hotpot_dev_distractor_v1.json"
 
 N_ACTIONS = 8
 SAMPLES_PER = 10
 NUM_Q = 100
 
 
+def getDataPoint(d):
+    p = {}
+    p["question"] = d["question"]
+
+    text_dict = {}
+    encode_dict = {}
+    for c in d["context"]:
+        text_dict[c[0]] = ["{}, {}".format(c[0], c[1][i]) for i in range(len(c[1]))]
+        encode_dict[c[0]] = ["{}: {}".format(c[0], c[1][i]) for i in range(len(c[1]))]
+
+    p["evidence"] = [text_dict[e[0]][e[1]] for e in d["supporting_facts"]]
+
+    p["text_corpus"] = []
+    p["encode_corpus"] = []
+    for k in text_dict.keys():
+        p["text_corpus"] += text_dict[k]
+        p["encode_corpus"] += encode_dict[k]
+
+    return p
+
+
 def main():
 
     torch.no_grad()
 
-    # load semantic search model
-    search = Searcher(load=SEARCH_FILE)
-    search = search.to(DEVICE)
+    # # load semantic search model
+    # search = Searcher(load=SEARCH_FILE)
+    # search = search.to(DEVICE)
 
-    # load agent model
-    model = Agent(load=AGENT_FILE)
-    model = model.to(DEVICE)
+    # # load agent model
+    # model = Agent(load=AGENT_FILE)
+    # model = model.to(DEVICE)
 
-    env = Environment(DATA_FILE, ENCODINGS_FILE, search, model, N_ACTIONS, device=torch.device(DEVICE), data_end=NUM_Q)
+    data = None
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
 
-    tot_corr = 0
-    num_sampled = 0
-
-    overall_f1s = []
-    normed_probs = []
-    overall_corr = None
-
-    score_ranks = []
-    prob_ranks = []
-
-    with tqdm(range(env.size)) as pbar:
-        for q_id in pbar:
-            f1s, log_probs = [], []
-
-            for _ in range(SAMPLES_PER):
-                f1, log_prob, num_actions = env.sampleRollout(q_id)
-
-                f1s.append(f1)
-                log_probs.append(log_prob.item())
-
-                overall_f1s.append(f1)
-                normed_probs.append(log_prob.item()/num_actions)
-
-            if (num_sampled+1) % 10 == 0:
-                overall_corr = spearmanr(a=np.array(overall_f1s), b=np.array(normed_probs))[0]
-        
-            if len(set(f1s)) == 1 or len(set(log_probs)) == 1:
-                continue
-
-            num_sampled += 1
-            tot_corr += spearmanr(a=np.array(f1s), b=np.array(log_probs))[0] 
-
-            sorted_f1s = sorted(f1s, reverse=True)
-            sorted_probs = sorted(log_probs, reverse=True)
-            for f1 in f1s:
-                score_ranks.append(sorted_f1s.index(f1) + 1)
-            for prob in log_probs:
-                prob_ranks.append(sorted_probs.index(prob) + 1)
-
-            pbar.set_postfix({"avg": tot_corr/num_sampled, "overall": overall_corr})
-
-    plt.scatter(overall_f1s, normed_probs)
-    plt.savefig("./logs/correlation.png")
-
-    x = score_ranks
-    y = prob_ranks
-
-    # count the occurrences of each point
-    c = Counter(zip(x,y))
-    # create a list of the sizes, here multiplied by 10 for scale
-    s = [10*c[(xx,yy)] for xx,yy in zip(x,y)]
-
-    plt.scatter(score_ranks, prob_ranks, s=s)
-    plt.savefig("./logs/rank_correlation.png")
-            
-
+    for d in data:
+        p = getDataPoint(d)
+        print(p)
+        exit()
 
 
 if __name__ == "__main__":
