@@ -24,7 +24,7 @@ ENCODINGS_FILE = "../local_data/corpus_encodings/val.pt"
 
 N_ACTIONS = 8
 SAMPLES_PER = 10
-NUM_Q = 100
+NUM_Q = 1000
 
 
 def main():
@@ -77,11 +77,32 @@ def main():
             sorted_probs = sorted(log_probs, reverse=True)
             for f1 in f1s:
                 score_ranks.append(sorted_f1s.index(f1) + 1)
+                sorted_f1s[sorted_f1s.index(f1)] = None
             for prob in log_probs:
                 prob_ranks.append(sorted_probs.index(prob) + 1)
+                sorted_probs[sorted_probs.index(prob)] = None
 
             pbar.set_postfix({"avg": tot_corr/num_sampled, "overall": overall_corr})
 
+            if (num_sampled+1) % 100 == 0:
+                plt.scatter(overall_f1s, normed_probs)
+                plt.savefig("./logs/correlation.png")
+
+                x = score_ranks
+                y = prob_ranks
+
+                # count the occurrences of each point
+                c = Counter(zip(x,y))
+                # create a list of the sizes, here multiplied by 10 for scale
+                s = [500*c[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
+
+                plt.clf()
+                plt.scatter(score_ranks, prob_ranks, s=s)
+                plt.savefig("./logs/rank_correlation.png")
+                plt.clf()
+
+                torch.save((score_ranks, prob_ranks), "./logs/rank_data.pt")
+    
     plt.scatter(overall_f1s, normed_probs)
     plt.savefig("./logs/correlation.png")
 
@@ -98,6 +119,7 @@ def main():
     plt.savefig("./logs/rank_correlation.png")
 
     torch.save((score_ranks, prob_ranks), "./logs/rank_data.pt")
+
 
 if __name__ == "__main__":
     main()
