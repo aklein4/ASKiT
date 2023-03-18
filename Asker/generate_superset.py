@@ -61,20 +61,20 @@ def main():
             if i == 1000:
                 print("Saving small...")
                 with open(SMALL_OUTFILE, 'w') as f:
-                    json.dump(data_list, f)
+                    json.dump(data_list, f, indent=4)
                 print("Small save complete. Resuming generation...")
 
             elif i % 5000 == 0:
                 print("Saving...")
                 with open(OUTFILE, 'w') as f:
-                    json.dump(data_list, f)
+                    json.dump(data_list, f, indent=4)
                 print("Save complete. Resuming generation...")
 
     print("Done.")
-    
+
     print("Writing final JSON...")
     with open(OUTFILE, 'w') as f:
-        json.dump(data_list, f)
+        json.dump(data_list, f, indent=4)
     print("Done.")
     print("Generation complete. Have a nice day!")
 
