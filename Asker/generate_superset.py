@@ -46,13 +46,22 @@ def main():
         #with tqdm(0, len(t_data)) as p:
         for i in tqdm(range(len(data))):
             all_evidence = data[i]["chosen"].split('<sep>')
+
+            states = []
+            inverse_inputs = []
             for j in range(1, len(all_evidence) - 1):
                 ques_ev = data[i]['question'] + ' '.join(all_evidence[:j]) + " </s>"
+                states.append(ques_ev)
                 to_invert = "generate question: " + ' '.join(all_evidence[j + 1:]) + " </s>"
-                input_ids = tokenizer.encode(to_invert, return_tensors="pt", truncation=True).to("cuda")
-                res = asker.generate(input_ids, **GENERATOR_ARGS)
-                inverted_question = tokenizer.batch_decode(res, skip_special_tokens=True)
-                data_list.append({"question_ev": ques_ev, "inverted_ques": inverted_question})
+                inverse_inputs.append(to_invert)
+
+            input_ids = tokenizer.encode(inverse_inputs, return_tensors="pt", truncation=True).to("cuda")
+            res = asker.generate(input_ids, **GENERATOR_ARGS)
+            inverted_questions = tokenizer.batch_decode(res, skip_special_tokens=True)
+            
+            for i in range(len(states)):
+                data_list.append({"question_ev": states[i], "inverted_ques": inverted_questions[i]})
+
             if i % 100 == 0: 
                 print("Gone through " + str(i) + " / " + str(len(data)) + " examples.")   
 
