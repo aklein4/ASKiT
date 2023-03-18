@@ -94,7 +94,7 @@ def main():
                 # count the occurrences of each point
                 c = Counter(zip(x,y))
                 # create a list of the sizes, here multiplied by 10 for scale
-                s = [500*c[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
+                s = [1000*c[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
 
                 plt.clf()
                 plt.scatter(score_ranks, prob_ranks, s=s)
@@ -112,7 +112,7 @@ def main():
     # count the occurrences of each point
     c = Counter(zip(x,y))
     # create a list of the sizes, here multiplied by 10 for scale
-    s = [10*c[(xx,yy)] for xx,yy in zip(x,y)]
+    s = [1000*c[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
 
     plt.clf()
     plt.scatter(score_ranks, prob_ranks, s=s)
