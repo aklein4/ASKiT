@@ -33,7 +33,7 @@ def main():
     asker = asker.to("cuda")
 
     # Load Data
-    data = load_dataset("json", data_files=DATA_PATH, split='train[:2%]')
+    data = load_dataset("json", data_files=DATA_PATH, split='train')
 
     # Consider '<sep>' token
     tokenizer.sep_token = '<sep>'
