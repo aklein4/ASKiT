@@ -54,13 +54,17 @@ def main():
                 states.append(ques_ev)
                 to_invert = "generate question: " + ' '.join(all_evidence[j + 1:]) + " </s>"
                 inverse_inputs.append(to_invert)
+            if len(inverse_inputs) == 0:
+                continue
 
-            input_ids = tokenizer.encode(inverse_inputs, return_tensors="pt", truncation=True).to("cuda")
-            res = asker.generate(input_ids, **GENERATOR_ARGS)
+            input_ids = tokenizer.batch_encode_plus(inverse_inputs, return_tensors="pt", truncation=True, padding=True)
+            for k in input_ids.keys():
+               input_ids[k] = input_ids[k].to("cuda")
+            res = asker.generate(**input_ids, **GENERATOR_ARGS)
             inverted_questions = tokenizer.batch_decode(res, skip_special_tokens=True)
-            
-            for i in range(len(states)):
-                data_list.append({"question_ev": states[i], "inverted_ques": inverted_questions[i]})
+
+            for k in range(len(states)):
+                data_list.append({"question_ev": states[k], "inverted_ques": inverted_questions[k]})
 
             if i % 100 == 0: 
                 print("Gone through " + str(i) + " / " + str(len(data)) + " examples.")   
