@@ -70,15 +70,15 @@ def main():
     for i in range(len(env.data)):
         question = env.data[i]['question']
         chosen = env.greedyRollout(i, "", env.data[i]["raw_corpus"], env.corpus[i].float())
-        amalg = '<sep>'.join(chosen)
+        amalg = '<sep>'.join(chosen[1:])
         input_string = "generate question: " + amalg + " </s>"
         input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
         res = example_asker.generate(input_ids, **GENERATOR_ARGS)
         output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
         #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"        
         print("\n-----------------")
-        print('Original Question\n', question)
-        print('Chosen Evidence\n', chosen)
+        print('Original Question\n', question, chosen[0])
+        print('Chosen Evidence\n', chosen[1:])
         # print('Target Evidence\n', target_evidence)
         print('New Question\n', output)
 
