@@ -50,7 +50,7 @@ def main():
             states = []
             inverse_inputs = []
             for j in range(1, len(all_evidence) - 1):
-                ques_ev = data[i]['question'] + ' '.join(all_evidence[:j]) + " </s>"
+                ques_ev = data[i]['question'] + '<sep>' + ' '.join(all_evidence[:j]) + " </s>"
                 states.append(ques_ev)
                 to_invert = "generate question: " + ' '.join(all_evidence[j + 1:]) + " </s>"
                 inverse_inputs.append(to_invert)
