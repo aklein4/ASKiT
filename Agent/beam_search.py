@@ -152,6 +152,80 @@ class ASKiT:
         return chosen, log_prob
 
 
+    def beamSearch(self, question, text_corpus, encoding_corpus, n_beams=BEAM_SIZE):
+        encodings = self.searcher.encode(encoding_corpus)
+
+        questions = [question]*n_beams
+        evidences = [""]*n_beams
+        chosens = [[]]*n_beams
+        dones = torch.tensor([False]*n_beams).to(DEVICE)
+        log_probs = torch.zeros(n_beams).to(DEVICE)
+
+        avail_texts = [text_corpus.copy() for _ in range(n_beams)]
+        avail_encodings = [encodings.clone() for _ in range(n_beams)]
+
+        while True:
+        
+            if min(len(a) for a in avail_texts) < N_ACTIONS-1 or max([len(c) for c in chosen]) >= MAX_DEPTH:
+                break
+
+            # use search to get the top k actions
+            scores = self.searcher.forward(([questions[i] + evidences[i] for i in range(n_beams)], avail_encodings))[0]
+            _, top_inds = torch.topk(scores, N_ACTIONS-1)
+
+            # convert from indices to strings
+            action_sets = [[None] for _ in range(n_beams)] # actions as strings
+            action_indss = [[None] for _ in range(n_beams)] # actions as indices
+            for b in range(n_beams):
+                for i in range(N_ACTIONS-1):
+                    action_indss[b] += [top_inds[b,i]]
+                    action_sets[b] += [avail_texts[b][top_inds[b,i]]]
+
+            # use the agent to get the policy scores
+            policy = self.agent.forward((questions, evidences, [a[1:] for a in action_sets]))[0]
+            policy = torch.log_softmax(policy, dim=-1)
+            policy[dones,0] = 0
+            policy[dones, 1:] = float('-inf')
+
+            ratings = policy + log_probs.unsqueeze(-1)
+            
+            R = torch.topk(ratings.view(-1), n_beams)[1]
+            new_beams = [(R[i]//policy.shape[1], R[i]%policy.shape[1]) for i in range(n_beams)]
+
+            temp_questions, temp_evidences, temp_chosens = [], "", []
+            temp_avail_texts, temp_avail_encodings = [], []
+            temp_dones, temp_log_probs = [], []
+
+            for b in range(n_beams):
+                i, j = new_beams[b]
+                temp_questions += [questions[i]]
+                if j == 0:
+                    temp_evidences += [evidences[i]]
+                    temp_chosens += [chosens[i]]
+                    temp_avail_texts += [avail_texts[i].copy()]
+                    temp_avail_encodings += [avail_encodings[i].clone()]
+                    temp_dones += [True]
+                    temp_log_probs += [ratings[i, j]]
+                else:
+                    temp_evidences += [evidences[i] + " " + action_sets[i][j]]
+                    temp_chosens += [chosens[i] + [action_sets[i][j]]]
+                    temp_avail_texts += [avail_texts[i].copy()]
+                    temp_avail_encodings += [torch.cat([avail_encodings[i][:action_indss[i][j]], avail_encodings[i][action_indss[i][j]+1:]])]
+                    temp_dones += [False]
+                    temp_log_probs += [ratings[i, j]]
+
+            questions, evidences, chosens = temp_questions, temp_evidences, temp_chosens
+            avail_texts, avail_encodings = temp_avail_texts, temp_avail_encodings
+            dones, log_probs = torch.tensor(temp_dones).to(DEVICE), torch.tensor(temp_log_probs).to(DEVICE)
+
+            if torch.all(dones):
+                break
+        
+        best_answer = torch.argmax(log_probs)
+
+        return chosens[best_answer]
+        
+
 def main():
 
     torch.no_grad()
@@ -170,7 +244,7 @@ def main():
     for d in pbar:
         p = getDataPoint(d)
         
-        pred = askit.getEvidence(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
+        pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
         gold = p["evidence"]
 
         corr, f1, prec, rec = calcMetrics(pred, gold)
