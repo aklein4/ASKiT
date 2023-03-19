@@ -12,15 +12,35 @@ import json
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
-AGENT_FILE = "checkpoints/onehot_ppo_56"
+AGENT_FILE = "checkpoints/agent_0"
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 DATA_FILE = "../local_data/hotpot/hotpot_dev_distractor_v1.json"
 
 N_ACTIONS = 8
-MAX_DEPTH = 8
+MAX_DEPTH = 10
 SAMPLES_PER = 10
+
+
+def calcMetrics(pred, gold):
+
+    # compare pred vs gold
+    correct = 0
+    for c in pred:
+        if c in gold:
+            correct += 1
+
+    # calc stats
+    precision = correct / max(len(pred), 1)
+    recall = correct / max(1, len(gold))
+
+    # turn into f1
+    f1 = 0
+    if precision + recall > 0:
+        f1 = 2 * precision * recall / (precision + recall)
+
+    return int(f1==1.0), f1, precision, recall
 
 
 def getDataPoint(d):
@@ -46,82 +66,88 @@ def getDataPoint(d):
 
 class ASKiT:
     def __init__(self):
-        self.search = Searcher(load=SEARCH_FILE)
-        self.search = self.search.to(DEVICE)
+        self.searcher = Searcher(load=SEARCH_FILE)
+        self.searcher = self.searcher.to(DEVICE)
+        self.searcher.eval()
 
-        self.model = Agent(load=AGENT_FILE)
-        self.model = self.model.to(DEVICE)
-
-
-    def getEvidence(self, question, corpus, encodings):
-        chosen = self.greedyRollout(question, corpus, encodings, self.model, N_ACTIONS, device=torch.device(DEVICE))
-        return chosen
+        self.agent = Agent(load=AGENT_FILE)
+        self.agent = self.agent.to(DEVICE)
+        self.agent.eval()
 
 
-    def greedyRollout(self, question_id, evidence, avail_text, avail_encodings, start_depth=0):
-        # finish a greedy rollout from the current state
-
-        # get the question using the id
-        question = self.data[question_id]["question"]
-
-        # make sure that we don't modify the original text corpus
-        avail_text = avail_text.copy()
+    def getEvidence(self, question, text_corpus, encode_corpus, n_samples=1):
+    
+        best_chosen, best_log_prob = self.rollout(question, text_corpus, encode_corpus, sample=False)
         
+        for i in range(max(0, n_samples-1)):
+            chosen, log_prob = self.rollout(question, text_corpus, encode_corpus, sample=True)
+            if log_prob > best_log_prob:
+                best_chosen = chosen
+                best_log_prob = log_prob
+        
+        return best_chosen
+
+
+    def rollout(self, question, text_corpus, encode_corpus, sample=False):
+
+        avail_text = text_corpus.copy()
+        avail_encodings = self.searcher.encode(encode_corpus)
+
         # fill chossen with only the evidence that this function chooses
+        evidence = ""
         chosen = []
 
-        # go until end
-        with torch.no_grad():
-            while True:
-                
-                
-                # use search to get the top k actions
-                scores = self.search.forward(([question + evidence], [avail_encodings]))[0]
-                _, top_inds = torch.topk(scores, self.top_k-1)
+        log_prob = 0
 
-                # convert from indices to strings
-                action_set = [None] # actions as strings
-                action_inds = [None] # actions as indices
-                for i in range(top_inds.shape[0]):
-                    action_inds += [top_inds[i]]
-                    action_set += [avail_text[top_inds[i]]]
-
-                # use the agent to get the policy scores
-                policy = self.agent.forward(([question], [evidence], [action_set[1:]]), debug=True)[0]
-
-                assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
-
-                # choose action greedily
-                action = torch.argmax(policy).item()
-                    
-                if action not in list(range(len(action_set))):
-                    print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
-                    action = 0
-
-                # stop if we submit, reach max depth, or run out of evidence needed for full stack
-                if action == 0 or len(chosen)+start_depth == MAX_DEPTH or len(avail_text)-1 < self.top_k:
-                    break
-
-                # continue sampling rollout
-                else:
-
-                    # add the chosen action to the running evidence and chosen
-                    new_ev_str = action_set[action]
-                    chosen.append(new_ev_str)
-                    evidence += new_ev_str
-                
-                    # remove the chosen action from the available evidence
-                    avail_text.pop(action_inds[action])    
-                    avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
-                    assert len(avail_text) == avail_encodings.shape[0]
-
+        while True:
         
-        # clear cache if memory is getting full
-        if get_mem_use() >= MEM_THRESH:
-            torch.cuda.empty_cache()
+            if len(avail_text) < N_ACTIONS-1 or len(chosen) >= MAX_DEPTH:
+                break
 
-        # return the chosen evidence that was chosen during this rollout
-        return chosen
+            # use search to get the top k actions
+            scores = self.searcher.forward(([question + evidence], [avail_encodings]))[0]
+            _, top_inds = torch.topk(scores, N_ACTIONS-1)
+
+            # convert from indices to strings
+            action_set = [None] # actions as strings
+            action_inds = [None] # actions as indices
+            for i in range(top_inds.shape[0]):
+                action_inds += [top_inds[i]]
+                action_set += [avail_text[top_inds[i]]]
+
+            # use the agent to get the policy scores
+            policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
+            assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
+            policy_dist = torch.distributions.Categorical(probs=torch.softmax(policy))
+
+            action = torch.argmax(policy)
+            if sample:
+                action = policy_dist.sample()
+            log_prob += policy_dist.log_prob(action)
+            action = action.item()
+
+            if action not in list(range(len(action_set))):
+                print("Invalid action chosen: {} (only {} actions available)".format(action, len(action_set)))
+                action = 0
+
+            # stop if we submit, reach max depth, or run out of evidence needed for full stack
+            if action == 0:
+                break
+
+            # continue sampling rollout
+            else:
+
+                # add the chosen action to the running evidence and chosen
+                new_ev_str = action_set[action]
+                chosen.append(new_ev_str)
+                evidence += new_ev_str
+            
+                # remove the chosen action from the available evidence
+                avail_text.pop(action_inds[action])    
+                avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+                assert len(avail_text) == avail_encodings.shape[0]
+        
+        return chosen, log_prob
 
 
 def main():
@@ -134,13 +160,27 @@ def main():
     with open(DATA_FILE, "r") as f:
         data = json.load(f)
 
-    for d in tqdm(data):
+    tot_corr, tot_f1, tot_prec, tot_rec = 0, 0, 0, 0
+    num_samples = 0
+
+    pbar = tqdm(data)
+    for d in pbar:
         p = getDataPoint(d)
         
-        corpus = p["text_corpus"].copy()
-        encodings = search.encode(p["encode_corpus"])
+        pred = askit.getEvidence(p["question"], p["text_corpus"], p["encode_corpus"])
+        gold = p["evidence"]
 
-        chosen = greedyRollout(p["question"], corpus, encodings, model, N_ACTIONS, device=torch.device(DEVICE))
+        corr, f1, prec, rec = calcMetrics(pred, gold)
+        tot_corr += corr
+        tot_f1 += f1
+        tot_prec += prec
+        tot_rec += rec
+        num_samples += 1
+
+        pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples})
+    pbar.close()
+
+    print("\nFinal results:\nAccuracy: {}\nF1: {}\nPrecision: {}\nRecall: {}".format(tot_corr/num_samples, tot_f1/num_samples, tot_prec/num_samples, tot_rec/num_samples))
 
 if __name__ == "__main__":
     main()

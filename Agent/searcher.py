@@ -37,7 +37,8 @@ class Searcher(nn.Module):
         super().__init__()
     
         # should not be trained
-        self.encoder = SentenceTransformer(ENCODING_MODEL)
+        self.encoder_tokenizer = AutoTokenizer.from_pretrained(SEARCH_MODEL)
+        self.encoder_encoder = AutoModel.from_pretrained(SEARCH_MODEL)
         
         # used to create latent search vectors
         self.search_tokenizer = None 
@@ -63,7 +64,12 @@ class Searcher(nn.Module):
         Returns:
             tensor: [sentences, latent_space] encoding matrix
         """
-        return self.encoder(corpus, convert_to_tensor=True)
+        search_ins = self.encoder_tokenizer(corpus, padding=True, truncation=True, return_tensors='pt').to(self.encoder_encoder.device)
+        search_outs = self.encoder_encoder(**search_ins, return_dict=True)
+    
+        # convert to vectors as seen in pretrained
+        h = mean_pooling(search_outs, search_ins["attention_mask"])
+        return h
 
 
     def varTest(self, sentence):
