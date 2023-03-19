@@ -317,6 +317,7 @@ def main():
             print("    {}: {}".format(i, sub_questions[i]))
             for j in range(len(sub_chosens[i])):
                 print("     - {}".format(sub_chosens[i][j]))
+        input("\n...")
 
         # pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
         # gold = p["evidence"]
