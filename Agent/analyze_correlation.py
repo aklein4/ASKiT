@@ -25,7 +25,7 @@ ENCODINGS_FILE = "../local_data/corpus_encodings/val.pt"
 N_ACTIONS = 8
 SAMPLES_PER = 10
 NUM_Q = 1000
-
+SAMPLE_TEMP = 0.5
 
 def main():
 
@@ -56,7 +56,7 @@ def main():
             f1s, log_probs = [], []
 
             for _ in range(SAMPLES_PER):
-                f1, log_prob, num_actions = env.sampleRollout(q_id)
+                f1, log_prob, num_actions = env.sampleRollout(q_id, temp=SAMPLE_TEMP)
 
                 f1s.append(f1)
                 log_probs.append(log_prob.item())
@@ -106,16 +106,24 @@ def main():
     plt.scatter(overall_f1s, normed_probs)
     plt.savefig("./logs/correlation.png")
 
+    # score_ranks, prob_ranks = torch.load("./logs/rank_data.pt")
+
     x = score_ranks
     y = prob_ranks
 
     # count the occurrences of each point
-    c = Counter(zip(x,y))
+    counts = Counter(zip(x,y))
     # create a list of the sizes, here multiplied by 10 for scale
-    s = [1000*c[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
+    s = [2000*counts[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
+    c = [counts[(xx,yy)]/len(x) for xx,yy in zip(x,y)]
 
     plt.clf()
-    plt.scatter(score_ranks, prob_ranks, s=s)
+    plt.scatter(score_ranks, prob_ranks, c=c, s=s)
+    plt.xticks(np.arange(1, 11, 1))
+    plt.yticks(np.arange(1, 11, 1))
+    plt.xlabel("Rank of F1 Score")
+    plt.ylabel("Rank of Trajectory Probability")
+    plt.title("Rank Correlation of Trajectory Probability and F1 Score")
     plt.savefig("./logs/rank_correlation.png")
 
     torch.save((score_ranks, prob_ranks), "./logs/rank_data.pt")

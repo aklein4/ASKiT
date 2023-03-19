@@ -439,7 +439,7 @@ class Environment:
         return chosen
 
 
-    def sampleRollout(self, question_id):
+    def sampleRollout(self, question_id, temp=1):
         # finish a greedy rollout from the current state
 
         log_prob = 0
@@ -478,7 +478,8 @@ class Environment:
                 assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
                 
                 policy = F.softmax(policy, dim=0)
-                action = np.random.choice(np.arange(policy.numel()), p=policy.detach().cpu().numpy())
+                probs = F.softmax(temp*policy, dim=0)
+                action = np.random.choice(np.arange(policy.numel()), p=probs.detach().cpu().numpy())
 
                 log_prob += torch.log(policy[action])
                 num_actions += 1    
