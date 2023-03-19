@@ -5,6 +5,9 @@ import torch.nn.functional as F
 
 from searcher import Searcher
 from agent import Agent
+import sys
+sys.path.append("../utils")
+from train_utils import get_mem_use
 
 from tqdm import tqdm
 import numpy as np
@@ -168,6 +171,10 @@ def main():
 
     pbar = tqdm(data)
     for d in pbar:
+
+        if get_mem_use() >= 0.8:
+            torch.cuda.empty_cache()
+
         p = getDataPoint(d)
         
         pred = askit.getEvidence(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
