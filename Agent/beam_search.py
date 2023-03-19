@@ -9,10 +9,11 @@ from agent import Agent
 from tqdm import tqdm
 import numpy as np
 import json
+import random
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
-AGENT_FILE = "checkpoints/agent_0"
+AGENT_FILE = "checkpoints/onehot_ppo_56"
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -20,7 +21,7 @@ DATA_FILE = "../local_data/hotpot/hotpot_dev_distractor_v1.json"
 
 N_ACTIONS = 8
 MAX_DEPTH = 10
-SAMPLES_PER = 10
+BEAM_SIZE = 5
 
 
 def calcMetrics(pred, gold):
@@ -76,11 +77,12 @@ class ASKiT:
 
 
     def getEvidence(self, question, text_corpus, encode_corpus, n_samples=1):
-    
-        best_chosen, best_log_prob = self.rollout(question, text_corpus, encode_corpus, sample=False)
+        encodings = self.searcher.encode(encode_corpus)
+
+        best_chosen, best_log_prob = self.rollout(question, text_corpus, encodings, sample=False)
         
         for i in range(max(0, n_samples-1)):
-            chosen, log_prob = self.rollout(question, text_corpus, encode_corpus, sample=True)
+            chosen, log_prob = self.rollout(question, text_corpus, encodings, sample=True)
             if log_prob > best_log_prob:
                 best_chosen = chosen
                 best_log_prob = log_prob
@@ -88,10 +90,10 @@ class ASKiT:
         return best_chosen
 
 
-    def rollout(self, question, text_corpus, encode_corpus, sample=False):
+    def rollout(self, question, text_corpus, encodings, sample=False):
 
         avail_text = text_corpus.copy()
-        avail_encodings = self.searcher.encode(encode_corpus)
+        avail_encodings = encodings.clone() 
 
         # fill chossen with only the evidence that this function chooses
         evidence = ""
@@ -118,7 +120,7 @@ class ASKiT:
             # use the agent to get the policy scores
             policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
             assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
-            policy_dist = torch.distributions.Categorical(probs=torch.softmax(policy))
+            policy_dist = torch.distributions.Categorical(probs=torch.softmax(policy, dim=-1))
 
             action = torch.argmax(policy)
             if sample:
@@ -159,6 +161,7 @@ def main():
     data = None
     with open(DATA_FILE, "r") as f:
         data = json.load(f)
+    random.shuffle(data)
 
     tot_corr, tot_f1, tot_prec, tot_rec = 0, 0, 0, 0
     num_samples = 0
@@ -167,7 +170,7 @@ def main():
     for d in pbar:
         p = getDataPoint(d)
         
-        pred = askit.getEvidence(p["question"], p["text_corpus"], p["encode_corpus"])
+        pred = askit.getEvidence(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
         gold = p["evidence"]
 
         corr, f1, prec, rec = calcMetrics(pred, gold)
