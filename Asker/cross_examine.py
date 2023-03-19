@@ -47,6 +47,8 @@ DEVICE = torch.device("cpu")
 
 
 def main():
+    torch.no_grad()    
+    
     # load semantic search model
     search = Searcher(load=SEARCHER_CHECKPOINT)
     search = search.to(DEVICE)
@@ -55,8 +57,13 @@ def main():
     chooser = Agent(load=AGENT_CHECKPOINT)
     chooser = chooser.to(DEVICE)
 
-    example_tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
-    example_asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
+
+    tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=512)
+    asker = T5ForConditionalGeneration.from_pretrained(ASKER_MODEL)
+
+    search.eval()
+    chooser.eval()
+    asker.eval()
 
     # load data
     env = Environment(
@@ -76,9 +83,9 @@ def main():
             input_list.append(question)
         for k in range(len(input_list)):
             input_string = "generate question: " + input_list[k] + " </s>"
-            input_ids = example_tokenizer.encode(input_string, return_tensors="pt", truncation=True)
-            res = example_asker.generate(input_ids, **GENERATOR_ARGS)
-            output = example_tokenizer.batch_decode(res, skip_special_tokens=True)
+            input_ids = tokenizer.encode(input_string, return_tensors="pt", truncation=True)
+            res = asker.generate(input_ids, **GENERATOR_ARGS)
+            output = tokenizer.batch_decode(res, skip_special_tokens=True)
         #output = [item.split("<sep>") for item in output][0][0].split("?")[0]+"?"        
             print("\n-----------------")
             print('Original Question and Evidence\n', input_list[k])
