@@ -5,6 +5,8 @@ import torch.nn.functional as F
 
 from searcher import Searcher
 from agent import Agent
+from asker import Asker
+
 import sys
 sys.path.append("../utils")
 from train_utils import get_mem_use
@@ -78,6 +80,10 @@ class ASKiT:
         self.agent = self.agent.to(DEVICE)
         self.agent.eval()
 
+        self.asker = Asker()
+        self.asker = self.asker.to(DEVICE)
+        self.asker.eval()
+
 
     def getEvidence(self, question, text_corpus, encode_corpus, n_samples=1):
         encodings = self.searcher.encode(encode_corpus)
@@ -93,7 +99,7 @@ class ASKiT:
         return best_chosen
 
 
-    def rollout(self, question, text_corpus, encodings, sample=False):
+    def rollout(self, question, text_corpus, encodings, sample=False, get_avail=False):
 
         avail_text = text_corpus.copy()
         avail_encodings = encodings.clone() 
@@ -152,6 +158,8 @@ class ASKiT:
                 avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
                 assert len(avail_text) == avail_encodings.shape[0]
         
+        if get_avail:
+            return chosen, avail_text, avail_encodings
         return chosen, log_prob
 
 
@@ -227,7 +235,49 @@ class ASKiT:
         best_answer = torch.argmax(log_probs)
 
         return chosens[best_answer]
+    
+
+    def recursiveSearch(self, question, text_corpus, encoding_corpus, detailed=False):
+        encodings = self.searcher.encode(encoding_corpus)
+
+        avail_text = text_corpus.copy()
+        avail_encodings = encodings.clone() 
+
+        # fill chossen with only the evidence that this function chooses
+        evidence = ""
+        chosen = []
+
+        sub_questions = []
+        sub_chosens = []
+
+        while True:
         
+            if len(avail_text) < N_ACTIONS-1 or len(chosen) >= MAX_DEPTH:
+                break
+
+            # use search to get the top k actions
+            scores = self.searcher.forward(([question + evidence], [avail_encodings]))[0]
+            _, top_inds = torch.topk(scores, N_ACTIONS-1)
+
+            # use the agent to get the policy scores
+            policy = self.agent.forward(([question], [evidence], [[avail_text[top_inds[i]] for i in range(top_inds.shape[0])]]))[0]
+
+            if torch.argmax(policy) == 0:
+                break
+
+            new_question = self.asker(question, evidence)
+            new_chosen, avail_text, avail_encodings = self.recursiveSearch(new_question, avail_text, avail_encodings)
+            
+            evidence += " " + " ".join(new_chosen)
+            chosen += new_chosen
+
+            sub_questions.append(new_question)
+            sub_chosens.append(new_chosen)
+
+        if detailed:
+            return chosen, sub_questions, sub_chosens
+        return chosen
+
 
 def main():
 
@@ -244,24 +294,33 @@ def main():
     num_samples = 0
 
     pbar = tqdm(data)
-    for d in pbar:
+    for d in data:
 
         if get_mem_use() >= 0.8:
             torch.cuda.empty_cache()
 
         p = getDataPoint(d)
         
-        pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
-        gold = p["evidence"]
+        chosen, sub_questions, sub_chosens = askit.recursiveSearch(p["question"], p["text_corpus"], p["encode_corpus"], detailed=True)
 
-        corr, f1, prec, rec = calcMetrics(pred, gold)
-        tot_corr += corr
-        tot_f1 += f1
-        tot_prec += prec
-        tot_rec += rec
-        num_samples += 1
+        print("\n--------------------\n")
+        print("Question:\n - {}".format(p["question"]))
+        for i in range(len(sub_questions)):
+            print("    {}: {}".format(i, sub_questions[i]))
+            for j in range(len(sub_chosens[i])):
+                print("     - {}".format(sub_chosens[i][j]))
 
-        pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples})
+        # pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
+        # gold = p["evidence"]
+
+        # corr, f1, prec, rec = calcMetrics(pred, gold)
+        # tot_corr += corr
+        # tot_f1 += f1
+        # tot_prec += prec
+        # tot_rec += rec
+        # num_samples += 1
+
+        # pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples})
     pbar.close()
 
     print("\nFinal results:\nAccuracy: {}\nF1: {}\nPrecision: {}\nRecall: {}".format(tot_corr/num_samples, tot_f1/num_samples, tot_prec/num_samples, tot_rec/num_samples))
