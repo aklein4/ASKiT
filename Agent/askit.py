@@ -164,6 +164,7 @@ class ASKiT:
 
 
     def beamSearch(self, question, text_corpus, encoding_corpus, n_beams=BEAM_SIZE):
+        torch.cuda.empty_cache()
         encodings = self.searcher.encode(encoding_corpus)
 
         questions = [question]*n_beams
@@ -177,23 +178,28 @@ class ASKiT:
 
         while True:
         
+            torch.cuda.empty_cache()
+
             if min(len(a) for a in avail_texts) < N_ACTIONS-1 or max([len(c) for c in chosens]) >= MAX_DEPTH:
                 break
 
             # use search to get the top k actions
-            scores = self.searcher.forward(([questions[i] + evidences[i] for i in range(n_beams)], avail_encodings))[0]
-            _, top_inds = torch.topk(scores, N_ACTIONS-1)
+            scores = self.searcher.forward(([questions[i] + evidences[i] for i in range(n_beams)], avail_encodings))
+            top_inds = []
+            for b in range(n_beams):
+                _, top = torch.topk(scores[b], N_ACTIONS-1)
+                top_inds.append(top)
 
             # convert from indices to strings
             action_sets = [[None] for _ in range(n_beams)] # actions as strings
             action_indss = [[None] for _ in range(n_beams)] # actions as indices
             for b in range(n_beams):
                 for i in range(N_ACTIONS-1):
-                    action_indss[b] += [top_inds[b,i]]
-                    action_sets[b] += [avail_texts[b][top_inds[b,i]]]
+                    action_indss[b] += [top_inds[b][i]]
+                    action_sets[b] += [avail_texts[b][top_inds[b][i]]]
 
             # use the agent to get the policy scores
-            policy = self.agent.forward((questions, evidences, [a[1:] for a in action_sets]))[0]
+            policy = self.agent.forward((questions, evidences, [a[1:] for a in action_sets]))
             policy = torch.log_softmax(policy, dim=-1)
             policy[dones,0] = 0
             policy[dones, 1:] = float('-inf')
@@ -203,13 +209,14 @@ class ASKiT:
             R = torch.topk(ratings.view(-1), n_beams)[1]
             new_beams = [(R[i]//policy.shape[1], R[i]%policy.shape[1]) for i in range(n_beams)]
 
-            temp_questions, temp_evidences, temp_chosens = [], "", []
+            temp_questions, temp_evidences, temp_chosens = [], [], []
             temp_avail_texts, temp_avail_encodings = [], []
             temp_dones, temp_log_probs = [], []
 
             for b in range(n_beams):
                 i, j = new_beams[b]
                 temp_questions += [questions[i]]
+                
                 if j == 0:
                     temp_evidences += [evidences[i]]
                     temp_chosens += [chosens[i]]
@@ -217,10 +224,12 @@ class ASKiT:
                     temp_avail_encodings += [avail_encodings[i].clone()]
                     temp_dones += [True]
                     temp_log_probs += [ratings[i, j]]
+                
                 else:
                     temp_evidences += [evidences[i] + " " + action_sets[i][j]]
                     temp_chosens += [chosens[i] + [action_sets[i][j]]]
                     temp_avail_texts += [avail_texts[i].copy()]
+                    temp_avail_texts[-1].pop(action_indss[i][j])
                     temp_avail_encodings += [torch.cat([avail_encodings[i][:action_indss[i][j]], avail_encodings[i][action_indss[i][j]+1:]])]
                     temp_dones += [False]
                     temp_log_probs += [ratings[i, j]]
@@ -288,7 +297,6 @@ def main():
     data = None
     with open(DATA_FILE, "r") as f:
         data = json.load(f)
-    random.shuffle(data)
 
     tot_corr, tot_f1, tot_prec, tot_rec = 0, 0, 0, 0
     num_samples = 0
