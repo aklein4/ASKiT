@@ -27,7 +27,7 @@ from transformers import T5ForConditionalGeneration, AutoTokenizer
 ASKER_MODEL = "matthv/third_t5-end2end-questions-generation"
 GENERATOR_ARGS = {
   "max_length": 128,
-  "num_beams": 1,
+  "num_beams": 2,
   "length_penalty": 1.5,
   "no_repeat_ngram_size": 3,
   "early_stopping": True,
