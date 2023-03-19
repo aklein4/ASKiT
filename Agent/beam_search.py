@@ -171,7 +171,7 @@ class ASKiT:
         while True:
         
             torch.cuda.empty_cache()
-            
+
             if min(len(a) for a in avail_texts) < N_ACTIONS-1 or max([len(c) for c in chosens]) >= MAX_DEPTH:
                 break
 
