@@ -71,7 +71,7 @@ def main():
         INPUT_ENCODINGS,
         search, chooser,
         8, device=torch.device(DEVICE),
-        data_end=10
+        data_end=30
     )
 
     for i in range(len(env.data)):
