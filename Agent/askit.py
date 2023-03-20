@@ -18,15 +18,15 @@ import random
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
-AGENT_FILE = "checkpoints/onehot_ppo_56"
+AGENT_FILE = "checkpoints/agent-pre"
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 DATA_FILE = "../local_data/hotpot/hotpot_dev_distractor_v1.json"
 
-N_ACTIONS = 8
+N_ACTIONS = 6
 MAX_DEPTH = 10
-BEAM_SIZE = 5
+BEAM_SIZE = 1
 
 
 def calcMetrics(pred, gold):
@@ -255,6 +255,37 @@ class ASKiT:
         # fill chossen with only the evidence that this function chooses
         evidence = ""
         chosen = []
+ 
+        # use search to get the top k actions
+        scores = self.searcher.forward(([question + evidence], [avail_encodings]))[0]
+        _, top_inds = torch.topk(scores, N_ACTIONS-1)
+
+        # convert from indices to strings
+        action_set = [None] # actions as strings
+        action_inds = [None] # actions as indices
+        for i in range(top_inds.shape[0]):
+            action_inds += [top_inds[i]]
+            action_set += [avail_text[top_inds[i]]]
+
+        # use the agent to get the policy scores
+        policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
+        assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
+        policy_dist = torch.distributions.Categorical(probs=torch.softmax(policy, dim=-1))
+
+        action = torch.argmax(policy).item()
+
+        if action == 0:
+            action = 1
+
+        # add the chosen action to the running evidence and chosen
+        new_ev_str = action_set[action]
+        chosen.append(new_ev_str)
+        evidence += new_ev_str
+    
+        # remove the chosen action from the available evidence
+        avail_text.pop(action_inds[action])    
+        avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
+        assert len(avail_text) == avail_encodings.shape[0]
 
         sub_questions = []
         sub_chosens = []
@@ -274,8 +305,8 @@ class ASKiT:
             if torch.argmax(policy) == 0:
                 break
 
-            new_question = self.asker(question, evidence)
-            new_chosen, avail_text, avail_encodings = self.recursiveSearch(new_question, avail_text, avail_encodings)
+            new_question = self.asker(question, evidence)[0]
+            new_chosen, avail_text, avail_encodings = self.rollout(new_question, avail_text, avail_encodings, get_avail=True)
             
             evidence += " " + " ".join(new_chosen)
             chosen += new_chosen
@@ -299,37 +330,40 @@ def main():
         data = json.load(f)
 
     tot_corr, tot_f1, tot_prec, tot_rec = 0, 0, 0, 0
+    tot_subs = 0
     num_samples = 0
 
     pbar = tqdm(data)
-    for d in data:
+    for d in pbar:
 
         if get_mem_use() >= 0.8:
             torch.cuda.empty_cache()
 
         p = getDataPoint(d)
         
-        chosen, sub_questions, sub_chosens = askit.recursiveSearch(p["question"], p["text_corpus"], p["encode_corpus"], detailed=True)
+        # chosen, sub_questions, sub_chosens = askit.recursiveSearch(p["question"], p["text_corpus"], p["encode_corpus"], detailed=True)
+        # tot_subs += len(sub_questions)
 
-        print("\n--------------------\n")
-        print("Question:\n - {}".format(p["question"]))
-        for i in range(len(sub_questions)):
-            print("    {}: {}".format(i, sub_questions[i]))
-            for j in range(len(sub_chosens[i])):
-                print("     - {}".format(sub_chosens[i][j]))
-        input("\n...")
+        # print("\n--------------------\n")
+        # print("Question:\n - {}".format(p["question"]))
+        # for i in range(len(sub_questions)):
+        #     print("    {}: {}".format(i, sub_questions[i]))
+        #     for j in range(len(sub_chosens[i])):
+        #         print("     - {}".format(sub_chosens[i][j]))
+        # input("\n...")
 
-        # pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
-        # gold = p["evidence"]
+        # pred = chosen
+        pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
+        gold = p["evidence"]
 
-        # corr, f1, prec, rec = calcMetrics(pred, gold)
-        # tot_corr += corr
-        # tot_f1 += f1
-        # tot_prec += prec
-        # tot_rec += rec
-        # num_samples += 1
+        corr, f1, prec, rec = calcMetrics(pred, gold)
+        tot_corr += corr
+        tot_f1 += f1
+        tot_prec += prec
+        tot_rec += rec
+        num_samples += 1
 
-        # pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples})
+        pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples, "subs": tot_subs/num_samples})
     pbar.close()
 
     print("\nFinal results:\nAccuracy: {}\nF1: {}\nPrecision: {}\nRecall: {}".format(tot_corr/num_samples, tot_f1/num_samples, tot_prec/num_samples, tot_rec/num_samples))

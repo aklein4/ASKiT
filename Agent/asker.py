@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, T5ForConditionalGeneration
 
 ASKER_MODEL = "matthv/third_t5-end2end-questions-generation"
 GENERATOR_ARGS = {
-  "max_length": 128,
+  "max_length": 64,
   "num_beams": 4,
   "length_penalty": 1.5,
   "no_repeat_ngram_size": 3,
@@ -28,7 +28,7 @@ class Asker(nn.Module):
 
         input_string = "generate question: " + question + "<sep>" + " ".join(evidence) + " </s>"
 
-        input_ids = self.tokenizer.encode(input_string, return_tensors="pt", truncation=True)
+        input_ids = self.tokenizer.encode(input_string, return_tensors="pt", truncation=True).to(self.model.device)
         res = self.model.generate(input_ids, **GENERATOR_ARGS)
         output = self.tokenizer.batch_decode(res, skip_special_tokens=True)
 
