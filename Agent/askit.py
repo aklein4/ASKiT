@@ -18,7 +18,7 @@ import random
 
 
 SEARCH_FILE = "checkpoints/searcher-p"
-AGENT_FILE = "checkpoints/agent-pre"
+AGENT_FILE = "checkpoints/onehot_ppo_56"
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -99,13 +99,12 @@ class ASKiT:
         return best_chosen
 
 
-    def rollout(self, question, text_corpus, encodings, sample=False, get_avail=False):
+    def rollout(self, question, text_corpus, encodings, sample=False, get_avail=False, evidence=""):
 
         avail_text = text_corpus.copy()
         avail_encodings = encodings.clone() 
 
         # fill chossen with only the evidence that this function chooses
-        evidence = ""
         chosen = []
 
         log_prob = 0
@@ -157,7 +156,7 @@ class ASKiT:
                 avail_text.pop(action_inds[action])    
                 avail_encodings = torch.cat([avail_encodings[:action_inds[action]], avail_encodings[action_inds[action]+1:]])
                 assert len(avail_text) == avail_encodings.shape[0]
-        
+
         if get_avail:
             return chosen, avail_text, avail_encodings
         return chosen, log_prob
@@ -270,7 +269,6 @@ class ASKiT:
         # use the agent to get the policy scores
         policy = self.agent.forward(([question], [evidence], [action_set[1:]]))[0]
         assert policy.numel() == len(action_set) and policy.numel() == len(action_inds)
-        policy_dist = torch.distributions.Categorical(probs=torch.softmax(policy, dim=-1))
 
         action = torch.argmax(policy).item()
 
@@ -306,7 +304,7 @@ class ASKiT:
                 break
 
             new_question = self.asker(question, evidence)[0]
-            new_chosen, avail_text, avail_encodings = self.rollout(new_question, avail_text, avail_encodings, get_avail=True)
+            new_chosen, avail_text, avail_encodings = self.rollout(new_question, avail_text, avail_encodings, get_avail=True, evidence=evidence)
             
             evidence += " " + " ".join(new_chosen)
             chosen += new_chosen
@@ -328,42 +326,44 @@ def main():
     data = None
     with open(DATA_FILE, "r") as f:
         data = json.load(f)
+    random.shuffle(data)
 
     tot_corr, tot_f1, tot_prec, tot_rec = 0, 0, 0, 0
     tot_subs = 0
     num_samples = 0
 
-    pbar = tqdm(data)
-    for d in pbar:
+    #pbar = tqdm(data)
+    for d in data:
 
         if get_mem_use() >= 0.8:
             torch.cuda.empty_cache()
 
         p = getDataPoint(d)
         
-        # chosen, sub_questions, sub_chosens = askit.recursiveSearch(p["question"], p["text_corpus"], p["encode_corpus"], detailed=True)
-        # tot_subs += len(sub_questions)
+        chosen, sub_questions, sub_chosens = askit.recursiveSearch(p["question"], p["text_corpus"], p["encode_corpus"], detailed=True)
+        tot_subs += len(sub_questions)
 
-        # print("\n--------------------\n")
-        # print("Question:\n - {}".format(p["question"]))
-        # for i in range(len(sub_questions)):
-        #     print("    {}: {}".format(i, sub_questions[i]))
-        #     for j in range(len(sub_chosens[i])):
-        #         print("     - {}".format(sub_chosens[i][j]))
-        # input("\n...")
+        print("\n--------------------\n")
+        print("Question:\n - {}".format(p["question"]))
+        print(" - {}".format(chosen[0]))
+        for i in range(len(sub_questions)):
+            print("    {}: {}".format(i, sub_questions[i]))
+            for j in range(len(sub_chosens[i])):
+                print("     - {}".format(sub_chosens[i][j]))
+        input("\n...")
 
         # pred = chosen
-        pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
-        gold = p["evidence"]
+        # pred = askit.beamSearch(p["question"], p["text_corpus"], p["encode_corpus"], BEAM_SIZE)
+        # gold = p["evidence"]
 
-        corr, f1, prec, rec = calcMetrics(pred, gold)
-        tot_corr += corr
-        tot_f1 += f1
-        tot_prec += prec
-        tot_rec += rec
-        num_samples += 1
+        # corr, f1, prec, rec = calcMetrics(pred, gold)
+        # tot_corr += corr
+        # tot_f1 += f1
+        # tot_prec += prec
+        # tot_rec += rec
+        # num_samples += 1
 
-        pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples, "subs": tot_subs/num_samples})
+        # pbar.set_postfix({"acc": tot_corr/num_samples, "f1": tot_f1/num_samples, "prec": tot_prec/num_samples, "rec": tot_rec/num_samples, "subs": tot_subs/num_samples})
     pbar.close()
 
     print("\nFinal results:\nAccuracy: {}\nF1: {}\nPrecision: {}\nRecall: {}".format(tot_corr/num_samples, tot_f1/num_samples, tot_prec/num_samples, tot_rec/num_samples))
