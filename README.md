@@ -5,6 +5,8 @@
 
 Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer NLP model to address the research question: "What if language models could ask their own questions?"
 
+![Project Poster](./CS224N Poster.png)
+
 ## Logistics
 
  - For each feature/model, there is a seperate branch and folder with relevant information in its README. This helps keep tasks seperated. See the respective branch for the most up-to-date version of a folder. (To move the changes from a different branch into the current one, use git merge other-branch)
@@ -17,10 +19,14 @@ Stanford CS224N Final Project. A text-based multi-hop reasoning question-answer 
      - [x] Semantic Search Pretraining
      - [x] Policy pretraining
      - [x] PPO RL fine-tuning
- - [x] 2. Recursive Question Asking (Phraser, Responder, Asker)
+ - [x] 2. Recursive Question Asking (Phraser, Asker)
      - [x] Question-inversion pretraining
      - [ ] KL-Divergence/Log-prob Fine-tuning
      - [ ] PPO RL fine-tuning (HopPotQA supervised)
+ - [ ] 3. Question-Answer Collation (Responder)
+     - [x] Implement pretrained model
+     - [ ] Single-step RL optimization (answer+inversion loss)
+     - [ ] PPO RL fine-tuning
 
 ## Brainstorming
 
